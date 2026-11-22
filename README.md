@@ -8,13 +8,16 @@ Everything stays in your browser. There is no account, no server and no tracking
 
 Made by Jigyasa Ahuja.
 
+**Try it live: https://quietly-j309.netlify.app**
+
 ## Features
 
 - Focus timer (25 / 5 / 15 minutes, adjustable) with an optional completion notification
 - Daily intention, habits that reset each day, tasks, brain dump
 - A gentle plan for the day with editable blocks
 - Sound mixer: synthesised rain, brown noise and forest, plus nine real recordings,
-  and your own audio files (kept in your browser only)
+  and your own audio files (kept in your browser only). A button saves all the recordings
+  on your device so they keep playing without internet
 - 9 colour themes and 19 background photos; the "Auto" theme adapts the colours to the photo
 - Seven languages: English, Español, Français, Deutsch, Português, Italiano, हिन्दी
 - Installable as an app, and works offline
@@ -66,6 +69,6 @@ assistant and have not all been reviewed by native speakers, so corrections are 
 ## Credits and licences
 
 - Code: MIT, copyright Jigyasa Ahuja, see [LICENSE](LICENSE).
-- Background photos: see `public/backgrounds/CREDITS.txt` (Unsplash and others).
+- Background photos: see `public/backgrounds/CREDITS.txt` (Unsplash and Pexels, free to use and redistribute).
 - Sound recordings: see `public/sounds/CREDITS.txt` (Pixabay Content Licence and CC BY 4.0).
 - Fonts: DM Sans and Playfair Display (SIL Open Font License) via Fontsource.
