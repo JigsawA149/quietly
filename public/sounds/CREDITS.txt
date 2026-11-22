@@ -1,0 +1,55 @@
+Quietly sounds
+
+birdsong.m4a
+  "Lake Engelermeer s-Hertogenbosch Netherlands 1056 AM 250226_1041" by klankbeeld
+  https://freesound.org/people/klankbeeld/sounds/790341/
+  Licence: Creative Commons Attribution 4.0 (CC BY 4.0)
+  Changes: converted to AAC, volume raised, loop point crossfaded.
+
+gentle-rain.m4a
+  "Gentle Rain" by Dragon-Studio
+  https://pixabay.com/sound-effects/nature-gentle-rain-01-437313/
+  Licence: Pixabay Content Licence (free to use, attribution not required)
+  Changes: converted to AAC, volume adjusted, loop point crossfaded.
+
+small-stream.m4a
+  "Small Stream" by freesound_community
+  https://pixabay.com/sound-effects/ (sound 19581)
+  Licence: Pixabay Content Licence (free to use, attribution not required)
+  Changes: converted to AAC, volume raised, loop point crossfaded.
+
+fire-crackling.m4a
+  "Fire Crackling" by Jurij (soundreality)
+  https://pixabay.com/sound-effects/ (sound 528620)
+  Licence: Pixabay Content Licence (free to use, attribution not required)
+  Changes: converted to AAC, loud pops softened, volume adjusted, loop point crossfaded.
+
+night-sea.m4a
+  "Night Cyprus Sea" by freesound_community
+  https://pixabay.com/sound-effects/ (sound 53355)
+  Licence: Pixabay Content Licence (free to use, attribution not required)
+  Changes: converted to AAC, volume raised, loop point crossfaded.
+
+wind-in-trees.m4a
+  "Wind in Trees, Bright Gusts" by freesound_community
+  https://pixabay.com/sound-effects/ (sound 48543)
+  Licence: Pixabay Content Licence (free to use, attribution not required)
+  Changes: converted to AAC, gusts evened out, loop point crossfaded.
+
+cafe-murmur.m4a
+  "Ladies in Prague cafe before concert (recorded from vocal mic on stage)" by freesound_community
+  https://pixabay.com/sound-effects/ (sound 53291)
+  Licence: Pixabay Content Licence (free to use, attribution not required)
+  Changes: converted to AAC, volume evened and raised, loop point crossfaded.
+
+rain-thunder.m4a
+  "10 Minute Rain and Thunder" (Pixabay sound 323964)
+  https://pixabay.com/sound-effects/ (sound 323964)
+  Licence: Pixabay Content Licence (free to use, attribution not required; confirmed on the download page)
+  Changes: converted to AAC, thunder and level swings evened out, loop point crossfaded.
+
+winter-wind.m4a
+  "Freezing Winter Wind" by DRAGON-STUDIO
+  https://pixabay.com/sound-effects/ (sound 499654)
+  Licence: Pixabay Content Licence (free to use, attribution not required)
+  Changes: the 13-second original was looped as three layers at slightly different speeds to make a 4-minute, seamless, less repetitive sound.

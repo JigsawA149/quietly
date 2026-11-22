@@ -1,0 +1,71 @@
+# Quietly.
+
+A calm, private space to return to yourself. A free, open-source focus dashboard:
+clock, daily intention, focus timer, habits, tasks, a gentle plan for the day,
+a brain-dump, ambient sounds and a library of quiet backgrounds.
+
+Everything stays in your browser. There is no account, no server and no tracking.
+
+Made by Jigyasa Ahuja.
+
+## Features
+
+- Focus timer (25 / 5 / 15 minutes, adjustable) with an optional completion notification
+- Daily intention, habits that reset each day, tasks, brain dump
+- A gentle plan for the day with editable blocks
+- Sound mixer: synthesised rain, brown noise and forest, plus nine real recordings,
+  and your own audio files (kept in your browser only)
+- 9 colour themes and 19 background photos; the "Auto" theme adapts the colours to the photo
+- Seven languages: English, Español, Français, Deutsch, Português, Italiano, हिन्दी
+- Installable as an app, and works offline
+
+## Run it on your computer
+
+You need [Node.js](https://nodejs.org) (version 18 or newer).
+
+```bash
+npm install
+npm run dev
+```
+
+Open the address it prints (usually http://localhost:5173).
+
+## Build and host it yourself
+
+```bash
+npm run build
+```
+
+This creates a `dist` folder. Upload the contents of `dist` to any static host
+(GitHub Pages, Netlify, Cloudflare Pages, your own server). To try the build locally:
+
+```bash
+npm run preview
+```
+
+Notes for hosting:
+
+- Serve it from the **root** of a domain or subdomain (for example `https://quietly.example.com/`).
+  Hosting in a sub-folder needs the paths in `public/manifest.webmanifest`, `public/sw.js`
+  and `index.html` changed.
+- It must be served over HTTPS (localhost is fine for testing) for install and offline to work.
+
+## Your data
+
+Tasks, notes, settings and your own sounds are saved in your browser (localStorage and IndexedDB).
+They are tied to the exact address you use, so `localhost:5173` and your hosted site are separate.
+Clearing "site data" in your browser deletes them.
+
+## Adding or fixing a translation
+
+All text lives in `src/i18n.js`. Each language is one block of lines like
+`'tasks.title': 'Clear the clutter'`. Copy the English block, translate the right-hand side,
+and keep any `{placeholders}` exactly as they are. The translations were written by an AI
+assistant and have not all been reviewed by native speakers, so corrections are very welcome.
+
+## Credits and licences
+
+- Code: MIT, copyright Jigyasa Ahuja, see [LICENSE](LICENSE).
+- Background photos: see `public/backgrounds/CREDITS.txt` (Unsplash and others).
+- Sound recordings: see `public/sounds/CREDITS.txt` (Pixabay Content Licence and CC BY 4.0).
+- Fonts: DM Sans and Playfair Display (SIL Open Font License) via Fontsource.
