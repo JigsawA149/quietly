@@ -674,3 +674,16 @@ body { font-family:'DM Sans','Noto Sans Devanagari','Kohinoor Devanagari','Devan
 
 /* v3.0.3 dialogs always sit above the header and its menus */
 .dialog-backdrop { z-index:100; }
+
+/* v3.1 wide sound bar */
+.sound-bar { position:relative; z-index:1; max-width:1240px; margin:18px auto 0; }
+.sound-bar .panel.sound { width:100%; min-height:0; }
+.sound-bar .sound-rows { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:9px 12px; max-height:none; overflow:visible; padding-right:0; margin-top:16px; }
+.sound-bar .sound-group { grid-column:1 / -1; margin:8px 2px 0; }
+.sound-bar .sound-group:first-child { margin-top:0; }
+.sound-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:14px; }
+.sound-actions .sound-add { width:auto; margin-top:0; padding:10px 18px; }
+.sound-actions .sound-add-form { margin-top:0; width:min(100%,420px); }
+.sound-offline { border:1px solid var(--border); background:transparent; color:var(--sage); border-radius:12px; padding:10px 18px; font:inherit; font-size:13px; cursor:pointer; }
+.sound-offline:hover:not(:disabled) { border-color:rgba(var(--gold-rgb),.55); color:var(--cream); }
+.sound-offline:disabled { opacity:.7; cursor:progress; }

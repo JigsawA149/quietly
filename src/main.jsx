@@ -417,6 +417,21 @@ function SoundMixer() {
   const [confirmRemove, setConfirmRemove] = useState(null)
   const [message, setMessage] = useState('')
   const fileInput = useRef(null)
+  const [offline, setOffline] = useState({ state: 'idle', done: 0 })
+  const saveOffline = async () => {
+    if (!('caches' in window)) { setOffline({ state: 'error', done: 0 }); return }
+    setOffline({ state: 'busy', done: 0 })
+    try {
+      const cache = await window.caches.open('quietly-sounds-v1')
+      let done = 0
+      for (const sound of BUNDLED_SOUNDS) {
+        if (!(await cache.match(sound.url))) await cache.add(sound.url)
+        done += 1
+        setOffline({ state: 'busy', done })
+      }
+      setOffline({ state: 'done', done })
+    } catch (error) { setOffline({ state: 'error', done: 0 }) }
+  }
   const urls = useRef({})
   useEffect(() => {
     let alive = true
@@ -480,7 +495,7 @@ function SoundMixer() {
     {item.kind === 'user' && <button type="button" className={`sound-remove ${confirmRemove === item.key ? 'confirm' : ''}`} onClick={() => removeSound(item)} onBlur={() => setConfirmRemove(null)} aria-label={t('sound.remove', { name: item.name })}>{confirmRemove === item.key ? t('sound.removeConfirm') : '×'}</button>}
   </div>
   const credits = BUNDLED_SOUNDS.map(d => d.credit)
-  return <section className="panel sound sound-mixer">
+  return <section className="panel sound sound-mixer sound-wide">
     <div className="panel-heading"><div className="panel-label">{t('sound.label')}</div>{anyOn && <button type="button" className="sound-stop" onClick={stopAll}>{t('sound.stopAll')}</button>}</div>
     <h2>{t('sound.title')}</h2>
     <div className="sound-rows">
@@ -489,9 +504,14 @@ function SoundMixer() {
       <div className="sound-group">{t('sound.groupRecordings')}</div>
       {items.filter(i => i.kind !== 'synth').map(renderRow)}
     </div>
+    <div className="sound-actions">
     {pending
       ? <form className="sound-add-form" onSubmit={savePending}><input autoFocus value={pending.name} maxLength={40} onChange={e => setPending(p => ({ ...p, name: e.target.value }))} aria-label={t('sound.nameAria')} /><button type="submit">{t('sound.save')}</button><button type="button" onClick={() => setPending(null)}>{t('sound.cancel')}</button></form>
       : <button type="button" className="sound-add" onClick={() => fileInput.current && fileInput.current.click()}>{t('sound.add')}</button>}
+    <button type="button" className="sound-offline" onClick={saveOffline} disabled={offline.state === 'busy'}>{offline.state === 'busy' ? t('sound.offlineBusy', { done: offline.done, total: BUNDLED_SOUNDS.length }) : t('sound.offline')}</button>
+    </div>
+    {offline.state === 'done' && <p className="sound-note">{t('sound.offlineDone')}</p>}
+    {offline.state === 'error' && <p className="sound-note">{t('sound.offlineError')}</p>}
     <input ref={fileInput} type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac" onChange={pickFile} hidden />
     {message && <p className="sound-note">{message}</p>}
     <details className="sound-credits"><summary>{t('sound.credits')}</summary>{credits.map(c => <p key={c}>{c}</p>)}</details>
@@ -751,9 +771,9 @@ function App() {
       </div>
       <div className="dashboard-column dashboard-right">
         <GentlePlan />
-        <SoundMixer />
       </div>
     </section>
+    <div className="sound-bar"><SoundMixer /></div>
     <footer className="footer">{t('app.footer')}</footer>
     {focusOpen && <PomodoroDialog onClose={() => setFocusOpen(false)} autoStart />}
     {themeOpen && <ThemeDialog currentTheme={theme} onSelect={chooseTheme} onClose={() => setThemeOpen(false)} />}
