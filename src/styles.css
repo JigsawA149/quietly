@@ -666,5 +666,11 @@ body { font-family:'DM Sans','Noto Sans Devanagari','Kohinoor Devanagari','Devan
 :lang(hi) .time, :lang(hi) .panel h2, :lang(hi) .tasks-dialog h2, :lang(hi) .hero-clock h1, :lang(hi) .theme-option-name { font-family:'Playfair Display','Noto Serif Devanagari','Kohinoor Devanagari','Devanagari Sangam MN',serif; }
 
 /* v3.0.1 keep the language menu above the cards */
-.topbar { z-index:40; }
+.topbar { z-index:10; }
 .hero-row, .dashboard-grid { position:relative; z-index:1; }
+
+/* v3.0.2 while any dialog is open, tuck the header behind it */
+.app-shell:has(.dialog-backdrop) .topbar { z-index:0; }
+
+/* v3.0.3 dialogs always sit above the header and its menus */
+.dialog-backdrop { z-index:100; }

@@ -731,7 +731,7 @@ function App() {
     <header className="topbar">
       <div className="wordmark">QUIETLY<span>.</span></div>
       <div className="top-caption">{t('app.caption')}</div>
-      <div className="header-actions"><LanguageMenu /><button className="fullscreen-button" onClick={toggleFullscreen} aria-label={isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} title={isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')}>{isFullscreen ? "⤡" : "⤢"}</button><button className="background-button" onClick={() => setBackgroundOpen(true)} aria-label={t('header.backgrounds')} title={t('header.backgroundsTip')}>▧</button><button className="settings-button" onClick={() => setThemeOpen(true)} aria-label={t('header.themes')} title={t('header.themesTip')}>☼</button></div>
+      <div className="header-actions"><LanguageMenu /><button className="fullscreen-button" onClick={toggleFullscreen} aria-label={isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} title={isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')}>{isFullscreen ? "⤡" : "⤢"}</button><button className="background-button" onClick={() => { setThemeOpen(false); setBackgroundOpen(true) }} aria-label={t('header.backgrounds')} title={t('header.backgroundsTip')}>▧</button><button className="settings-button" onClick={() => { setBackgroundOpen(false); setThemeOpen(true) }} aria-label={t('header.themes')} title={t('header.themesTip')}>☼</button></div>
     </header>
     <section className="hero-row">
       <Clock tasks={tasks} habits={habits} today={today} />
