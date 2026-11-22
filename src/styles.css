@@ -687,3 +687,27 @@ body { font-family:'DM Sans','Noto Sans Devanagari','Kohinoor Devanagari','Devan
 .sound-offline { border:1px solid var(--border); background:transparent; color:var(--sage); border-radius:12px; padding:10px 18px; font:inherit; font-size:13px; cursor:pointer; }
 .sound-offline:hover:not(:disabled) { border-color:rgba(var(--gold-rgb),.55); color:var(--cream); }
 .sound-offline:disabled { opacity:.7; cursor:progress; }
+
+/* v3.2 phones: keep the photo the size of the screen, not the whole tall page */
+.wallpaper, .wallpaper-shade { position:fixed; inset:0; width:100%; height:100%; }
+@media (max-width:700px) { .wallpaper { background-position:center top; transform:none; } }
+
+/* v3.3 frozen bars: main top bar, and the title row + close button of both studios */
+.app-shell { overflow:clip; }
+.topbar { position:sticky; top:0; padding:10px 14px; margin-top:-10px; border-radius:0 0 18px 18px;
+  background:linear-gradient(rgba(var(--ink-rgb),.5), rgba(var(--ink-rgb),.32)); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+.background-dialog, .theme-dialog { --dpad:clamp(22px,4vw,34px); }
+.background-dialog .dialog-topline, .theme-dialog .dialog-topline { position:sticky; top:0; z-index:5;
+  margin:calc(var(--dpad) * -1) calc(var(--dpad) * -1) 0; padding:var(--dpad) var(--dpad) 12px;
+  background:var(--dialog-a); border-radius:22px 22px 0 0; }
+@media(max-width:600px) { .background-dialog, .theme-dialog { --dpad:22px; } }
+
+/* v3.3.1 studio title row: hug the top edge, solid, slimmer */
+.background-dialog, .theme-dialog { padding-top:0; }
+.background-dialog .dialog-topline, .theme-dialog .dialog-topline { margin:0 calc(var(--dpad) * -1) 0; padding:calc(var(--dpad) * .75) var(--dpad) 14px;
+  background:linear-gradient(var(--dialog-a), var(--dialog-a)); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+
+/* v3.3.2 main top bar always flush with the top edge */
+.app-shell { padding-top:0; }
+.topbar { margin-top:0; padding:16px 14px; }
+@media(max-width:600px) { .app-shell { padding-top:0; } .topbar { padding:12px 10px; } }
