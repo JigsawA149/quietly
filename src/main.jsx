@@ -237,6 +237,27 @@ const THEMES = [
   { id: 'coastal', colors: ['#25343a','#3c535c','#8eb7c3','#e0ebee'] },
 ]
 
+function AboutDialog({ onClose }) {
+  const { t } = useI18n()
+  const ref = useRef(null)
+  useEffect(() => {
+    ref.current?.focus()
+    const handler = event => { if (event.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+  return <div className="dialog-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+    <section className="tasks-dialog about-dialog" ref={ref} tabIndex={-1} style={{ outline: 'none' }} role="dialog" aria-modal="true" aria-labelledby="about-dialog-title">
+      <div className="dialog-topline"><div className="panel-label">{t('about.label')}</div><button type="button" className="dialog-close" onClick={onClose} aria-label={t('about.close')}>×</button></div>
+      <h2 id="about-dialog-title">{t('about.title')}</h2><p className="dialog-description">{t('about.desc')}</p>
+      <div className="about-points">
+        {[1, 2, 3, 4, 5].map(n => <div className="about-point" key={n}><h3>{t(`about.p${n}.title`)}</h3><p>{t(`about.p${n}.text`)}</p></div>)}
+      </div>
+      <div className="tasks-dialog-footer"><a className="about-github" href="https://github.com/JigsawA149/quietly" target="_blank" rel="noopener noreferrer">{t('about.github')} ↗</a><button type="button" className="close-dialog-button" onClick={onClose}>{t('dialog.done')}</button></div>
+    </section>
+  </div>
+}
+
 function ThemeDialog({ currentTheme, onSelect, onClose }) {
   const { t } = useI18n()
   useEffect(() => {
@@ -786,6 +807,7 @@ function App() {
   useEffect(() => { document.documentElement.lang = lang }, [lang])
   const [theme, setTheme] = useState(() => { const saved = readStored('theme', 'forest').value; return THEMES.some(item => item.id === saved) ? saved : 'forest' })
   const [themeOpen, setThemeOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
   const [focusOpen, setFocusOpen] = useState(false)
   const pomo = usePomodoro(t)
   const openTimerRef = useRef(null)
@@ -811,7 +833,7 @@ function App() {
       if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
       const el = event.target
       if (el && el.closest && el.closest('input, textarea, select, [contenteditable="true"]')) return
-      if (focusOpen) return
+      if (focusOpen || aboutOpen) return
       const onControl = Boolean(el && el.closest && el.closest('button, a'))
       if (event.code === 'Space') { if (onControl || themeOpen || backgroundOpen) return; event.preventDefault(); openTimerRef.current() }
       else if (event.code === 'KeyB') { setThemeOpen(false); setBackgroundOpen(open => !open) }
@@ -820,7 +842,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [focusOpen, themeOpen, backgroundOpen])
+  }, [focusOpen, themeOpen, backgroundOpen, aboutOpen])
   const [today, setToday] = useState(localDateKey())
   const [intention, setIntention] = useState(() => {
     const saved = readStored('daily-intention', null).value
@@ -904,7 +926,8 @@ function App() {
       </div>
     </section>
     <div className="sound-bar"><SoundMixer /></div>
-    <footer className="footer">{t('app.footer')}</footer>
+    <footer className="footer">{t('app.footer')}<div><button type="button" className="footer-link" onClick={() => setAboutOpen(true)}>{t('about.link')}</button></div></footer>
+    {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
     {focusOpen && <PomodoroDialog pomo={pomo} onClose={() => setFocusOpen(false)} />}
     {themeOpen && <ThemeDialog currentTheme={theme} onSelect={chooseTheme} onClose={() => setThemeOpen(false)} />}
     {backgroundOpen && <BackgroundDialog currentBackground={background} onSelect={chooseBackground} onClose={() => setBackgroundOpen(false)} />}

@@ -711,3 +711,24 @@ body { font-family:'DM Sans','Noto Sans Devanagari','Kohinoor Devanagari','Devan
 .app-shell { padding-top:0; }
 .topbar { margin-top:0; padding:16px 14px; }
 @media(max-width:600px) { .app-shell { padding-top:0; } .topbar { padding:12px 10px; } }
+
+/* v3.4 backup & restore */
+.footer { display:flex; flex-direction:column; align-items:center; gap:10px; }
+.footer-link { background:none; border:0; color:var(--sage); font:inherit; font-size:12px; letter-spacing:.08em; cursor:pointer; text-decoration:underline; text-underline-offset:3px; opacity:.8; }
+.footer-link:hover { opacity:1; color:var(--cream); }
+.backup-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+.backup-file { position:relative; display:inline-block; cursor:pointer; }
+.backup-file input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; }
+.backup-confirm { margin-top:16px; padding-top:4px; border-top:1px solid var(--border); font-size:14px; }
+
+/* v3.5 about / privacy window */
+.footer-link { margin-top:10px; background:none; border:0; border-bottom:1px solid transparent; color:inherit; font:inherit; letter-spacing:.12em; cursor:pointer; padding:2px 0; opacity:.85; }
+.footer-link:hover, .footer-link:focus-visible { opacity:1; border-bottom-color:currentColor; }
+.about-dialog { overflow-y:auto; }
+.about-points { display:grid; gap:16px; margin:4px 0 18px; }
+.about-point h3 { margin:0 0 4px; font-size:14px; font-weight:600; color:var(--cream); }
+.about-point p { margin:0; font-size:13px; line-height:1.7; color:var(--muted); }
+.about-github { color:var(--sage); font-size:12px; text-decoration:none; border-bottom:1px solid rgba(var(--tint-rgb),.3); }
+.about-github:hover { color:var(--cream); }
+.app-shell[data-theme="paper"] .about-point h3 { color:#514436; }
+.app-shell[data-theme="paper"] .about-point p { color:#817665; }
