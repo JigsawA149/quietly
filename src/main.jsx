@@ -114,6 +114,7 @@ function QuoteOfTheDay({ compact = false } = {}) {
 
 
 const THEMES = [
+  { id: 'auto', colors: ['#29352f','#405249','#a6b7a5','#e5e8dc'] },
   { id: 'forest', colors: ['#18372b','#2d4938','#bda26a','#e8dfc9'] },
   { id: 'paper', colors: ['#ede5d5','#dcd0bb','#9b8060','#514436'] },
   { id: 'midnight', colors: ['#202b3d','#2d3d55','#829cc4','#e0e7f0'] },
@@ -122,7 +123,6 @@ const THEMES = [
   { id: 'amber', colors: ['#362c21','#51402e','#c39b62','#f0e1c5'] },
   { id: 'lavender', colors: ['#302c3e','#49435d','#b5a8d0','#eee7f4'] },
   { id: 'coastal', colors: ['#25343a','#3c535c','#8eb7c3','#e0ebee'] },
-  { id: 'auto', colors: ['#29352f','#405249','#a6b7a5','#e5e8dc'] },
 ]
 
 function ThemeDialog({ currentTheme, onSelect, onClose }) {
