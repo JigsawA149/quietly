@@ -40,6 +40,8 @@ Made by Jigyasa Ahuja.
 | B | Open or close the Atmosphere Studio (backgrounds) |
 | T | Open or close the Theme Studio |
 | S | Open or close your Stats (focus time this week, streak) |
+| M | Pause or resume your sounds (brings back the same mix) |
+| N | Show or hide the full sound mixer |
 | F | Enter or leave fullscreen |
 | Esc | Close any open window (a running timer keeps running) |
 

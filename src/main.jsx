@@ -523,14 +523,14 @@ function buildLayer(id, ctx, B, out) {
 }
 
 const SoundEngine = {
-  ctx: null, master: null, buffers: null, layers: {},
+  ctx: null, master: null, buffers: null, layers: {}, masterLevel: 1,
   ensure() {
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext
       if (!AC) return false
       const ctx = new AC()
       const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3
-      this.master = ctx.createGain(); this.master.gain.value = 0.9
+      this.master = ctx.createGain(); this.master.gain.value = 0.9 * this.masterLevel * this.masterLevel
       this.master.connect(comp); comp.connect(ctx.destination)
       this.buffers = { white: makeLoopBuffer(ctx, 8, fillWhite), pink: makeLoopBuffer(ctx, 10, fillPink), brown: makeLoopBuffer(ctx, 12, fillBrown) }
       this.ctx = ctx
@@ -571,6 +571,7 @@ const SoundEngine = {
     layer.out.gain.setTargetAtTime(0, this.ctx.currentTime, 0.35)
     setTimeout(layer.cleanup, 2000)
   },
+  setMaster(value) { this.masterLevel = value; if (this.master) this.master.gain.setTargetAtTime(0.9 * value * value, this.ctx.currentTime, 0.1) },
   setLevel(id, level) { const layer = this.layers[id]; if (layer) layer.out.gain.setTargetAtTime(level, this.ctx.currentTime, 0.1) },
   stopAll() { Object.keys(this.layers).forEach(id => this.stop(id)) },
 }
@@ -605,8 +606,13 @@ const saveUserSound = record => soundDbRun('readwrite', store => store.put(recor
 const deleteUserSound = id => soundDbRun('readwrite', store => store.delete(id))
 const cleanSoundName = filename => filename.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40) || 'My sound'
 
-function SoundMixer() {
+function SoundMixer({ expanded, onToggleExpanded, controlRef }) {
   const { t } = useI18n()
+  const panelRef = useRef(null)
+  const [master, setMaster] = useState(() => { const saved = readStored('sound-master', 1).value; return typeof saved === 'number' && saved >= 0 && saved <= 1 ? saved : 1 })
+  useEffect(() => { SoundEngine.setMaster(master) }, [])
+  const changeMaster = value => { setMaster(value); SoundEngine.setMaster(value); writeStored('sound-master', value) }
+  const lastMix = useRef((() => { const saved = readStored('sound-last-mix', []).value; return Array.isArray(saved) ? saved : [] })())
   const [levels, setLevels] = useState(() => {
     const saved = readStored('sound-levels', null).value
     const base = { rain: 0.6, brown: 0.5, forest: 0.6, birdsong: 0.5 }
@@ -688,6 +694,29 @@ function SoundMixer() {
     setUserSounds(list => list.filter(u => u.id !== item.record.id))
   }
   const anyOn = Object.values(active).some(Boolean)
+  useEffect(() => {
+    const keys = Object.keys(active).filter(key => active[key])
+    if (keys.length) { lastMix.current = keys; writeStored('sound-last-mix', keys) }
+  }, [active])
+  useEffect(() => { if (expanded && panelRef.current) panelRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }, [expanded])
+  const togglePlayback = () => {
+    if (anyOn) { stopAll(); return }
+    let keys = lastMix.current.filter(key => items.some(i => i.key === key))
+    if (!keys.length) keys = ['rain']
+    keys.forEach(key => { const item = items.find(i => i.key === key); if (item) toggle(item) })
+  }
+  controlRef.current = { togglePlayback }
+  const [popOpen, setPopOpen] = useState(false)
+  const fabRef = useRef(null)
+  useEffect(() => {
+    if (!popOpen) return
+    const onDown = event => { if (fabRef.current && !fabRef.current.contains(event.target)) setPopOpen(false) }
+    const onKey = event => { if (event.key === 'Escape') setPopOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey) }
+  }, [popOpen])
+  const nowPlaying = items.filter(i => active[i.key]).map(i => i.name).join(' · ')
   const renderRow = item => <div key={item.key} className={`sound-row ${active[item.key] ? 'on' : ''}`}>
     <button type="button" className="sound-toggle" onClick={() => toggle(item)} aria-pressed={!!active[item.key]}>
       <span className="sound-icon">{SOUND_ICONS[item.icon]}</span>
@@ -697,9 +726,36 @@ function SoundMixer() {
     {item.kind === 'user' && <button type="button" className={`sound-remove ${confirmRemove === item.key ? 'confirm' : ''}`} onClick={() => removeSound(item)} onBlur={() => setConfirmRemove(null)} aria-label={t('sound.remove', { name: item.name })}>{confirmRemove === item.key ? t('sound.removeConfirm') : '×'}</button>}
   </div>
   const credits = BUNDLED_SOUNDS.map(d => d.credit)
-  return <section className="panel sound sound-mixer sound-wide">
-    <div className="panel-heading"><div className="panel-label">{t('sound.label')}</div>{anyOn && <button type="button" className="sound-stop" onClick={stopAll}>{t('sound.stopAll')}</button>}</div>
-    <h2>{t('sound.title')}</h2>
+  const playButton = <button type="button" className={`sound-play ${anyOn ? 'on' : ''}`} onClick={togglePlayback} aria-label={anyOn ? t('sound.pause') : t('sound.play')} title={`${anyOn ? t('sound.pause') : t('sound.play')} (M)`}>
+    {anyOn
+      ? <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><rect x="5" y="4" width="3.4" height="12" rx="1"/><rect x="11.6" y="4" width="3.4" height="12" rx="1"/></svg>
+      : <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6 3.8v12.4a.8.8 0 0 0 1.2.7l10-6.2a.8.8 0 0 0 0-1.4l-10-6.2A.8.8 0 0 0 6 3.8z"/></svg>}
+  </button>
+  const nowText = <div className="sound-strip-text"><span className="sound-strip-label">{t('sound.label')}</span><span className="sound-strip-now">{nowPlaying || t('sound.nothing')}</span></div>
+  const masterSlider = extra => <input type="range" className={`sound-master ${extra}`} min="0" max="1" step="0.01" value={master} onChange={e => changeMaster(Number(e.target.value))} aria-label={t('sound.master')} title={t('sound.master')} />
+  if (!expanded) return <div className="sound-fab-wrap" ref={fabRef}>
+    {popOpen && <div className="sound-pop" role="dialog" aria-label={t('sound.label')}>
+      <div className="sound-strip">{playButton}{nowText}</div>
+      {masterSlider('sound-master-pop')}
+      {message && <p className="sound-note">{message}</p>}
+      <button type="button" className="sound-open-all" onClick={() => { setPopOpen(false); onToggleExpanded() }}>{t('sound.expand')} (N)</button>
+    </div>}
+    <button type="button" className={`sound-fab ${anyOn ? 'on' : ''}`} onClick={() => setPopOpen(open => !open)} aria-expanded={popOpen} aria-label={t('sound.label')} title={`${t('sound.label')} (M / N)`}>
+      <span className="eq" aria-hidden="true"><i /><i /><i /><i /></span>
+    </button>
+  </div>
+  return <section className="panel sound sound-mixer sound-wide is-open" ref={panelRef}>
+    <div className="sound-strip">
+      {playButton}
+      {nowText}
+      {masterSlider('')}
+      <button type="button" className="sound-expand" onClick={onToggleExpanded} aria-expanded={expanded} aria-label={t('sound.collapse')} title={`${t('sound.collapse')} (N)`}>
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: 'rotate(180deg)' }}><path d="M5 12l5-5 5 5"/></svg>
+      </button>
+    </div>
+    {expanded && <div className="sound-body">
+    <div className="panel-heading"><h2>{t('sound.title')}</h2>{anyOn && <button type="button" className="sound-stop" onClick={stopAll}>{t('sound.stopAll')}</button>}</div>
+    
     <div className="sound-rows">
       <div className="sound-group">{t('sound.groupBuiltin')}</div>
       {items.filter(i => i.kind === 'synth').map(renderRow)}
@@ -717,6 +773,7 @@ function SoundMixer() {
     <input ref={fileInput} type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac" onChange={pickFile} hidden />
     {message && <p className="sound-note">{message}</p>}
     <details className="sound-credits"><summary>{t('sound.credits')}</summary>{credits.map(c => <p key={c}>{c}</p>)}</details>
+    </div>}
   </section>
 }
 
@@ -878,6 +935,9 @@ function App() {
   const [themeOpen, setThemeOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
+  const [soundOpen, setSoundOpen] = useState(() => readStored('sound-expanded', false).value === true)
+  const soundControl = useRef(null)
+  const toggleSoundOpen = () => setSoundOpen(open => { writeStored('sound-expanded', !open); return !open })
   const [focusOpen, setFocusOpen] = useState(false)
   const pomo = usePomodoro(t)
   const openTimerRef = useRef(null)
@@ -910,6 +970,8 @@ function App() {
       else if (event.code === 'KeyT') { setBackgroundOpen(false); setStatsOpen(false); setThemeOpen(open => !open) }
       else if (event.code === 'KeyS') { setBackgroundOpen(false); setThemeOpen(false); setStatsOpen(open => !open) }
       else if (event.code === 'KeyF') toggleFullscreen()
+      else if (event.code === 'KeyM') { if (!themeOpen && !backgroundOpen && !statsOpen && soundControl.current) soundControl.current.togglePlayback() }
+      else if (event.code === 'KeyN') { if (!themeOpen && !backgroundOpen && !statsOpen) toggleSoundOpen() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -996,7 +1058,7 @@ function App() {
         <GentlePlan />
       </div>
     </section>
-    <div className="sound-bar"><SoundMixer /></div>
+    <div className={`sound-bar ${soundOpen ? 'is-open' : 'is-collapsed'}`}><SoundMixer expanded={soundOpen} onToggleExpanded={toggleSoundOpen} controlRef={soundControl} /></div>
     <footer className="footer">{t('app.footer')}<div><button type="button" className="footer-link" onClick={() => setAboutOpen(true)}>{t('about.link')}</button></div></footer>
     {statsOpen && <StatsDialog pomo={pomo} onClose={() => setStatsOpen(false)} />}
     {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
