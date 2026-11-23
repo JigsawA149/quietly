@@ -18,7 +18,8 @@ Made by Jigyasa Ahuja.
 
 ## Features
 
-- Focus timer (25 / 5 / 15 minutes, adjustable) with an optional completion notification
+- Focus timer (25 / 5 / 15 minutes, adjustable) that keeps running while you use the rest of the app,
+  with a gentle chime when it ends (and an optional desktop notification)
 - Daily intention, habits that reset each day, tasks, brain dump
 - A gentle plan for the day with editable blocks
 - Sound mixer: synthesised rain, brown noise and forest, plus nine real recordings,
@@ -32,12 +33,14 @@ Made by Jigyasa Ahuja.
 
 | Key | What it does |
 |---|---|
-| Space | Start the focus timer (and pause or resume it once it is open) |
+| Space | Start the focus timer, or open it if it is already running. Inside the timer window: pause or resume |
+| + / - | Make the timer longer or shorter by a minute (only while it is paused) |
+| 1 / 2 / 3 | Switch between Focus, Short break and Long break (only while the timer is stopped or paused) |
 | R | Reset the focus timer (when the timer window is open) |
 | B | Open or close the Atmosphere Studio (backgrounds) |
 | T | Open or close the Theme Studio |
 | F | Enter or leave fullscreen |
-| Esc | Close any open window |
+| Esc | Close any open window (a running timer keeps running) |
 
 The shortcuts do not trigger while you are typing in a box. In fullscreen, the browser uses
 the first Esc press to leave fullscreen, so press Esc again to close a window.

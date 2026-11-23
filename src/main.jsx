@@ -49,74 +49,163 @@ function Clock({ tasks = [], habits = [], today }) {
 
 
 
-function PomodoroDialog({ onClose, autoStart = false }) {
-  const { t } = useI18n()
+function usePomodoro(t) {
   const tRef = useRef(t)
   useEffect(() => { tRef.current = t }, [t])
-  const modes = { focus: { label: t('pomo.focus') }, short: { label: t('pomo.short') }, long: { label: t('pomo.long') } }
   const [mode, setMode] = useState('focus')
   const [durations, setDurations] = useState(() => { const saved = readStored('pomodoro-durations', null).value; return saved && typeof saved === 'object' ? { focus: saved.focus || 25, short: saved.short || 5, long: saved.long || 15 } : { focus: 25, short: 5, long: 15 } })
   const [remaining, setRemaining] = useState(durations.focus * 60)
-  const [running, setRunning] = useState(autoStart)
+  const [running, setRunning] = useState(false)
   const [sessions, setSessions] = useState(() => readStored('pomodoro-sessions', 0).value || 0)
+  const [chimeOn, setChimeOn] = useState(() => readStored('pomodoro-chime', true).value !== false)
+  const [notifyOn, setNotifyOn] = useState(() => readStored('pomodoro-notify', false).value === true)
   const [notificationStatus, setNotificationStatus] = useState(() => ('Notification' in window ? Notification.permission : 'unsupported'))
   const endAt = useRef(null)
-  const dialogRef = useRef(null)
-  const toggleRef = useRef(null)
-  const resetRef = useRef(null)
   const remainingRef = useRef(remaining)
+  const audioRef = useRef(null)
+  const chimeRef = useRef(chimeOn)
+  const notifyRef = useRef(notifyOn)
+  const baseTitle = useRef(typeof document !== 'undefined' ? document.title : 'QUIETLY')
+  chimeRef.current = chimeOn
+  notifyRef.current = notifyOn
   useEffect(() => { remainingRef.current = remaining }, [remaining])
+  const unlockAudio = () => {
+    try {
+      const AudioCtor = window.AudioContext || window.webkitAudioContext
+      if (!AudioCtor) return
+      if (!audioRef.current) audioRef.current = new AudioCtor()
+      if (audioRef.current.state === 'suspended') audioRef.current.resume()
+    } catch (error) { console.warn('QUIETLY audio could not start:', error) }
+  }
+  const playChime = () => {
+    try {
+      unlockAudio()
+      const ctx = audioRef.current
+      if (!ctx) return
+      const now = ctx.currentTime + 0.05
+      ;[523.25, 659.25, 783.99].forEach((freq, index) => {
+        const begin = now + index * 0.4
+        ;[[1, 0.16], [2, 0.04], [3, 0.015]].forEach(([multiple, peak]) => {
+          const osc = ctx.createOscillator()
+          const gain = ctx.createGain()
+          osc.type = 'sine'
+          osc.frequency.value = freq * multiple
+          gain.gain.setValueAtTime(0.0001, begin)
+          gain.gain.exponentialRampToValueAtTime(peak, begin + 0.03)
+          gain.gain.exponentialRampToValueAtTime(0.0001, begin + 2.4)
+          osc.connect(gain)
+          gain.connect(ctx.destination)
+          osc.start(begin)
+          osc.stop(begin + 2.5)
+        })
+      })
+    } catch (error) { console.warn('QUIETLY chime could not play:', error) }
+  }
   const switchMode = key => { setRunning(false); endAt.current = null; setMode(key); const next = durations[key] * 60; setRemaining(next); remainingRef.current = next }
   const reset = () => { setRunning(false); endAt.current = null; const next = durations[mode] * 60; setRemaining(next); remainingRef.current = next }
   const adjust = delta => { if (running) return; const nextDurations = { ...durations, [mode]: Math.max(1, Math.min(120, durations[mode] + delta)) }; setDurations(nextDurations); writeStored('pomodoro-durations', nextDurations); const next = nextDurations[mode] * 60; setRemaining(next); remainingRef.current = next }
-  useEffect(() => { if (!running) return; endAt.current = Date.now() + remainingRef.current * 1000; const tick = () => { const next = Math.max(0, Math.ceil((endAt.current - Date.now()) / 1000)); setRemaining(next); remainingRef.current = next; if (next <= 0) { setRunning(false); endAt.current = null; if (mode === 'focus') { const updated = sessions + 1; setSessions(updated); writeStored('pomodoro-sessions', updated) } if ('Notification' in window && Notification.permission === 'granted') { try { const notice = new Notification('QUIETLY', { body: mode === 'focus' ? tRef.current('pomo.doneFocus') : tRef.current('pomo.doneBreak'), tag: 'quietly-pomodoro', requireInteraction: false }); notice.onclick = () => { window.focus(); notice.close(); }; } catch (error) { console.warn('QUIETLY notification could not be shown:', error); } } } }; tick(); const timer = window.setInterval(tick, 250); return () => window.clearInterval(timer) }, [running, mode, sessions])
-  const start = () => { if (remaining <= 0) reset(); setRunning(true) }
-  toggleRef.current = () => (running ? setRunning(false) : start())
-  resetRef.current = reset
+  const start = () => { unlockAudio(); if (remaining <= 0) reset(); setRunning(true) }
+  const pause = () => setRunning(false)
+  const toggle = () => (running ? pause() : start())
+  const toggleChime = () => { const next = !chimeOn; setChimeOn(next); writeStored('pomodoro-chime', next); if (next) playChime() }
+  const toggleNotify = async () => {
+    if (!('Notification' in window)) { setNotificationStatus('unsupported'); return }
+    let permission = Notification.permission
+    if (permission === 'default') permission = await Notification.requestPermission()
+    setNotificationStatus(permission)
+    if (permission !== 'granted') return
+    const next = !notifyOn
+    setNotifyOn(next)
+    writeStored('pomodoro-notify', next)
+  }
+  useEffect(() => {
+    if (!running) return
+    endAt.current = Date.now() + remainingRef.current * 1000
+    const tick = () => {
+      const next = Math.max(0, Math.ceil((endAt.current - Date.now()) / 1000))
+      setRemaining(next)
+      remainingRef.current = next
+      if (next <= 0) {
+        setRunning(false)
+        endAt.current = null
+        if (mode === 'focus') { const updated = sessions + 1; setSessions(updated); writeStored('pomodoro-sessions', updated) }
+        if (chimeRef.current) playChime()
+        if (notifyRef.current && 'Notification' in window && Notification.permission === 'granted') {
+          try {
+            const notice = new Notification('QUIETLY', { body: mode === 'focus' ? tRef.current('pomo.doneFocus') : tRef.current('pomo.doneBreak'), tag: 'quietly-pomodoro', requireInteraction: false, silent: true })
+            notice.onclick = () => { window.focus(); notice.close() }
+          } catch (error) { console.warn('QUIETLY notification could not be shown:', error) }
+        }
+      }
+    }
+    tick()
+    const timer = window.setInterval(tick, 250)
+    return () => window.clearInterval(timer)
+  }, [running, mode, sessions])
+  useEffect(() => {
+    if (running) document.title = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')} · ${baseTitle.current}`
+    else document.title = baseTitle.current
+  }, [running, remaining])
+  const total = durations[mode] * 60
+  return { mode, durations, remaining, running, sessions, chimeOn, notifyOn, notificationStatus, total, switchMode, reset, adjust, start, pause, toggle, toggleChime, toggleNotify }
+}
+
+function PomodoroDialog({ pomo, onClose }) {
+  const { t } = useI18n()
+  const { mode, durations, remaining, running, sessions, chimeOn, notifyOn, notificationStatus, total, switchMode, reset, adjust, start, pause, toggleChime, toggleNotify } = pomo
+  const modes = { focus: { label: t('pomo.focus') }, short: { label: t('pomo.short') }, long: { label: t('pomo.long') } }
+  const dialogRef = useRef(null)
+  const pomoRef = useRef(pomo)
+  pomoRef.current = pomo
   useEffect(() => { if (dialogRef.current) dialogRef.current.focus() }, [])
   useEffect(() => {
     const onKey = event => {
       if (event.key === 'Escape') { onClose(); return }
       if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return
       const el = event.target
-      if (event.code === 'KeyR') {
-        if (el && el.closest && el.closest('input, textarea, select')) return
-        if (resetRef.current) resetRef.current()
-        return
-      }
+      const typing = Boolean(el && el.closest && el.closest('input, textarea, select'))
+      const modeKey = { Digit1: 'focus', Digit2: 'short', Digit3: 'long', Numpad1: 'focus', Numpad2: 'short', Numpad3: 'long' }[event.code]
+      if (modeKey) { if (!typing && !pomoRef.current.running) pomoRef.current.switchMode(modeKey); return }
+      if (event.code === 'KeyR') { if (!typing) pomoRef.current.reset(); return }
+      if (event.key === '+' || event.key === '=' || event.code === 'NumpadAdd') { if (!typing) pomoRef.current.adjust(1); return }
+      if (event.key === '-' || event.code === 'NumpadSubtract') { if (!typing) pomoRef.current.adjust(-1); return }
       if (event.code !== 'Space') return
       if (el && el.closest && el.closest('button, input, textarea, select, a')) return
-      event.preventDefault(); if (toggleRef.current) toggleRef.current()
+      event.preventDefault(); pomoRef.current.toggle()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
   const mm = String(Math.floor(remaining / 60)).padStart(2, '0')
   const ss = String(remaining % 60).padStart(2, '0')
-  const total = durations[mode] * 60
   const progress = total ? (total - remaining) / total : 0
-  const enableNotifications = async () => { if (!('Notification' in window)) { setNotificationStatus('unsupported'); return } if (Notification.permission === 'default') { const permission = await Notification.requestPermission(); setNotificationStatus(permission); return } setNotificationStatus(Notification.permission) }
+  const notifyLabel = notificationStatus === 'denied' ? t('pomo.notifBlocked') : notificationStatus === 'unsupported' ? t('pomo.notifUnsupported') : notificationStatus === 'granted' && notifyOn ? t('pomo.notifOn') : t('pomo.notifEnable')
   return <div className="dialog-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
     <section className="dialog pomodoro-dialog" ref={dialogRef} tabIndex={-1} style={{ outline: 'none' }} role="dialog" aria-modal="true" aria-label={t('pomo.aria')}>
       <div className="dialog-topline"><div className="panel-label">{t('pomo.label')}</div><button type="button" className="dialog-close" onClick={onClose} aria-label={t('pomo.close')}>×</button></div>
-      <div className="pomodoro-modes">{Object.keys(modes).map(key => <button type="button" key={key} className={`pomodoro-mode ${mode === key ? 'active' : ''}`} onClick={() => switchMode(key)}>{modes[key].label}</button>)}</div>
+      <div className="pomodoro-modes">{Object.keys(modes).map(key => <button type="button" key={key} className={`pomodoro-mode ${mode === key ? 'active' : ''}`} title={String(Object.keys(modes).indexOf(key) + 1)} onClick={() => switchMode(key)}>{modes[key].label}</button>)}</div>
       <div className="pomodoro-clock"><span>{mm}:{ss}</span><div className="pomodoro-track"><div style={{ width: `${progress * 100}%` }} /></div></div>
-      <div className="pomodoro-adjust"><button type="button" onClick={() => adjust(-1)} disabled={running}>−</button><span>{t('pomo.minutes', { n: durations[mode] })}</span><button type="button" onClick={() => adjust(1)} disabled={running}>+</button></div>
-      <div className="pomodoro-controls"><button type="button" className="pomodoro-primary" onClick={() => running ? setRunning(false) : start()}>{running ? t('pomo.pause') : remaining < total ? t('pomo.resume') : t('pomo.start')}</button><button type="button" className="pomodoro-secondary" onClick={reset} title="R">{t('pomo.reset')}</button></div>
+      <div className="pomodoro-adjust"><button type="button" onClick={() => adjust(-1)} disabled={running} title="-">−</button><span>{t('pomo.minutes', { n: durations[mode] })}</span><button type="button" onClick={() => adjust(1)} disabled={running} title="+">+</button></div>
+      <div className="pomodoro-controls"><button type="button" className="pomodoro-primary" onClick={() => running ? pause() : start()}>{running ? t('pomo.pause') : remaining > 0 && remaining < total ? t('pomo.resume') : t('pomo.start')}</button><button type="button" className="pomodoro-secondary" onClick={reset} title="R">{t('pomo.reset')}</button></div>
       <div className="pomodoro-session-count">{t(sessions === 1 ? 'pomo.session' : 'pomo.sessions', { n: sessions })}</div>
-      <button type="button" className="pomodoro-notification" onClick={enableNotifications}>{notificationStatus === 'granted' ? t('pomo.notifOn') : notificationStatus === 'denied' ? t('pomo.notifBlocked') : notificationStatus === 'unsupported' ? t('pomo.notifUnsupported') : t('pomo.notifEnable')}</button>
+      {running && <div className="pomodoro-session-count">{t('pomo.keepRunning')}</div>}
+      <button type="button" className="pomodoro-notification" onClick={toggleChime}>{chimeOn ? t('pomo.chimeOn') : t('pomo.chimeOff')}</button>
+      <button type="button" className="pomodoro-notification" onClick={toggleNotify}>{notifyLabel}</button>
     </section>
   </div>
 }
 
-function FocusPanel({ onOpen }) {
+function FocusPanel({ pomo, onOpen }) {
   const { t } = useI18n()
-  const saved = readStored('pomodoro-durations', null).value
-  const minutes = saved && typeof saved === 'object' && saved.focus ? saved.focus : 25
-  return <button type="button" className="panel focus focus-button" title="Space" onClick={onOpen} aria-label={t('focus.aria', { n: minutes })}>
+  const active = pomo.running || (pomo.remaining > 0 && pomo.remaining < pomo.total)
+  const minutes = Math.floor(pomo.remaining / 60)
+  const clock = active ? `${String(minutes).padStart(2, '0')}:${String(pomo.remaining % 60).padStart(2, '0')}` : `${String(pomo.durations.focus).padStart(2, '0')}:00`
+  const label = pomo.running ? t('focus.running') : active ? t('focus.paused') : t('focus.start')
+  const aria = active ? t('focus.ariaActive', { time: clock }) : t('focus.aria', { n: pomo.durations.focus })
+  return <button type="button" className="panel focus focus-button" title="Space" onClick={onOpen} aria-label={aria}>
     <div className="panel-label">{t('focus.label')}</div>
     <h2>{t('focus.title')}</h2>
-    <div className="focus-row"><span className="focus-time">{String(minutes).padStart(2, '0')}:00</span><span className="focus-start">{t('focus.start')}</span></div>
+    <div className="focus-row"><span className="focus-time">{clock}</span><span className="focus-start">{label}</span></div>
   </button>
 }
 
@@ -698,6 +787,9 @@ function App() {
   const [theme, setTheme] = useState(() => { const saved = readStored('theme', 'forest').value; return THEMES.some(item => item.id === saved) ? saved : 'forest' })
   const [themeOpen, setThemeOpen] = useState(false)
   const [focusOpen, setFocusOpen] = useState(false)
+  const pomo = usePomodoro(t)
+  const openTimerRef = useRef(null)
+  openTimerRef.current = () => { if (!pomo.running && (pomo.remaining >= pomo.total || pomo.remaining <= 0)) pomo.start(); setFocusOpen(true) }
   const [backgroundOpen, setBackgroundOpen] = useState(false)
   const [background, setBackground] = useState(() => { const saved = readStored('background', 'none').value; return BACKGROUNDS.some(item => item.id === saved) ? saved : 'none' })
   const chooseBackground = (nextBackground) => { setBackground(nextBackground); writeStored('background', nextBackground) }
@@ -721,7 +813,7 @@ function App() {
       if (el && el.closest && el.closest('input, textarea, select, [contenteditable="true"]')) return
       if (focusOpen) return
       const onControl = Boolean(el && el.closest && el.closest('button, a'))
-      if (event.code === 'Space') { if (onControl || themeOpen || backgroundOpen) return; event.preventDefault(); setFocusOpen(true) }
+      if (event.code === 'Space') { if (onControl || themeOpen || backgroundOpen) return; event.preventDefault(); openTimerRef.current() }
       else if (event.code === 'KeyB') { setThemeOpen(false); setBackgroundOpen(open => !open) }
       else if (event.code === 'KeyT') { setBackgroundOpen(false); setThemeOpen(open => !open) }
       else if (event.code === 'KeyF') toggleFullscreen()
@@ -800,7 +892,7 @@ function App() {
     </section>
     <section className="dashboard-grid">
       <div className="dashboard-column dashboard-left">
-        <FocusPanel onOpen={() => setFocusOpen(true)} />
+        <FocusPanel pomo={pomo} onOpen={() => openTimerRef.current()} />
         <InlineList label={t('habits.label')} title={t('habits.title')} items={habits} getText={h => h.name} isDone={h => h.completedDate === today} rowClass="habit-row" doneClass="habit-done" onAdd={addHabit} onToggle={toggleHabit} onEdit={editHabit} onDelete={deleteHabit} placeholder={t('habits.placeholder')} empty={t('habits.empty')} maxLength={100} footer={t('habits.footer', { done: habits.filter(h => h.completedDate === today).length, total: habits.length })} />
       </div>
       <div className="dashboard-column dashboard-middle">
@@ -813,7 +905,7 @@ function App() {
     </section>
     <div className="sound-bar"><SoundMixer /></div>
     <footer className="footer">{t('app.footer')}</footer>
-    {focusOpen && <PomodoroDialog onClose={() => setFocusOpen(false)} autoStart />}
+    {focusOpen && <PomodoroDialog pomo={pomo} onClose={() => setFocusOpen(false)} />}
     {themeOpen && <ThemeDialog currentTheme={theme} onSelect={chooseTheme} onClose={() => setThemeOpen(false)} />}
     {backgroundOpen && <BackgroundDialog currentBackground={background} onSelect={chooseBackground} onClose={() => setBackgroundOpen(false)} />}
   </main></I18nContext.Provider>
