@@ -39,6 +39,7 @@ Made by Jigyasa Ahuja.
 | R | Reset the focus timer (when the timer window is open) |
 | B | Open or close the Atmosphere Studio (backgrounds) |
 | T | Open or close the Theme Studio |
+| S | Open or close your Stats (focus time this week, streak) |
 | F | Enter or leave fullscreen |
 | Esc | Close any open window (a running timer keeps running) |
 

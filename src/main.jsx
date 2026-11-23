@@ -57,6 +57,7 @@ function usePomodoro(t) {
   const [remaining, setRemaining] = useState(durations.focus * 60)
   const [running, setRunning] = useState(false)
   const [sessions, setSessions] = useState(() => readStored('pomodoro-sessions', 0).value || 0)
+  const [log, setLog] = useState(() => { const saved = readStored('pomodoro-log', {}).value; return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {} })
   const [chimeOn, setChimeOn] = useState(() => readStored('pomodoro-chime', true).value !== false)
   const [notifyOn, setNotifyOn] = useState(() => readStored('pomodoro-notify', false).value === true)
   const [notificationStatus, setNotificationStatus] = useState(() => ('Notification' in window ? Notification.permission : 'unsupported'))
@@ -107,6 +108,7 @@ function usePomodoro(t) {
   const start = () => { unlockAudio(); if (remaining <= 0) reset(); setRunning(true) }
   const pause = () => setRunning(false)
   const toggle = () => (running ? pause() : start())
+  const clearStats = () => { setLog({}); setSessions(0); writeStored('pomodoro-log', {}); writeStored('pomodoro-sessions', 0) }
   const toggleChime = () => { const next = !chimeOn; setChimeOn(next); writeStored('pomodoro-chime', next); if (next) playChime() }
   const toggleNotify = async () => {
     if (!('Notification' in window)) { setNotificationStatus('unsupported'); return }
@@ -128,7 +130,14 @@ function usePomodoro(t) {
       if (next <= 0) {
         setRunning(false)
         endAt.current = null
-        if (mode === 'focus') { const updated = sessions + 1; setSessions(updated); writeStored('pomodoro-sessions', updated) }
+        if (mode === 'focus') {
+          const updated = sessions + 1; setSessions(updated); writeStored('pomodoro-sessions', updated)
+          const day = localDateKey()
+          const nextLog = { ...log, [day]: { s: (log[day]?.s || 0) + 1, m: (log[day]?.m || 0) + durations.focus } }
+          const keep = Object.keys(nextLog).sort().slice(-400)
+          const trimmed = Object.fromEntries(keep.map(k => [k, nextLog[k]]))
+          setLog(trimmed); writeStored('pomodoro-log', trimmed)
+        }
         if (chimeRef.current) playChime()
         if (notifyRef.current && 'Notification' in window && Notification.permission === 'granted') {
           try {
@@ -141,13 +150,13 @@ function usePomodoro(t) {
     tick()
     const timer = window.setInterval(tick, 250)
     return () => window.clearInterval(timer)
-  }, [running, mode, sessions])
+  }, [running, mode, sessions, log, durations])
   useEffect(() => {
     if (running) document.title = `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')} · ${baseTitle.current}`
     else document.title = baseTitle.current
   }, [running, remaining])
   const total = durations[mode] * 60
-  return { mode, durations, remaining, running, sessions, chimeOn, notifyOn, notificationStatus, total, switchMode, reset, adjust, start, pause, toggle, toggleChime, toggleNotify }
+  return { mode, durations, remaining, running, sessions, log, clearStats, chimeOn, notifyOn, notificationStatus, total, switchMode, reset, adjust, start, pause, toggle, toggleChime, toggleNotify }
 }
 
 function PomodoroDialog({ pomo, onClose }) {
@@ -236,6 +245,66 @@ const THEMES = [
   { id: 'lavender', colors: ['#302c3e','#49435d','#b5a8d0','#eee7f4'] },
   { id: 'coastal', colors: ['#25343a','#3c535c','#8eb7c3','#e0ebee'] },
 ]
+
+function lastSevenDays() {
+  const days = []
+  for (let i = 6; i >= 0; i--) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); days.push({ key: localDateKey(d), date: d }) }
+  return days
+}
+
+function currentStreak(log) {
+  const d = new Date(); d.setHours(12, 0, 0, 0)
+  if (!log[localDateKey(d)]?.s) d.setDate(d.getDate() - 1)
+  let n = 0
+  while (log[localDateKey(d)]?.s) { n++; d.setDate(d.getDate() - 1) }
+  return n
+}
+
+function StatsDialog({ pomo, onClose }) {
+  const { t, locale } = useI18n()
+  const ref = useRef(null)
+  const [confirming, setConfirming] = useState(false)
+  useEffect(() => {
+    ref.current?.focus()
+    const handler = event => { if (event.key === 'Escape' || event.code === 'KeyS') { if (event.ctrlKey || event.metaKey || event.altKey) return; onClose() } }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+  const days = lastSevenDays()
+  const minutes = days.map(day => pomo.log[day.key]?.m || 0)
+  const weekTotal = minutes.reduce((a, b) => a + b, 0)
+  const peak = Math.max(...minutes, 1)
+  const fmt = m => (m >= 60 ? t('stats.hm', { h: Math.floor(m / 60), m: m % 60 }) : t('stats.m', { m }))
+  const streak = currentStreak(pomo.log)
+  const logged = Object.values(pomo.log).reduce((a, d) => a + (d.s || 0), 0)
+  const earlier = Math.max(0, pomo.sessions - logged)
+  const weekday = date => { try { return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(date) } catch { return '' } }
+  return <div className="dialog-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) onClose() }}>
+    <section className="tasks-dialog stats-dialog" ref={ref} tabIndex={-1} style={{ outline: 'none' }} role="dialog" aria-modal="true" aria-labelledby="stats-dialog-title">
+      <div className="dialog-topline"><div className="panel-label">{t('stats.label')}</div><button type="button" className="dialog-close" onClick={onClose} aria-label={t('stats.close')}>×</button></div>
+      <h2 id="stats-dialog-title">{t('stats.title')}</h2><p className="dialog-description">{t('stats.desc')}</p>
+      <div className="stats-week"><span className="stats-week-label">{t('stats.week')}</span><span className="stats-week-total">{weekTotal ? fmt(weekTotal) : '—'}</span></div>
+      <div className="stats-chart" role="img" aria-label={t('stats.chartAria')}>
+        {days.map((day, i) => <div className={`stats-col ${i === 6 ? 'today' : ''}`} key={day.key} title={fmt(minutes[i])}>
+          <div className="stats-bar-wrap"><div className="stats-bar" style={{ height: minutes[i] ? `${Math.max(6, Math.round((minutes[i] / peak) * 100))}%` : '3px' }} /></div>
+          <span className="stats-day">{weekday(day.date)}</span>
+        </div>)}
+      </div>
+      {weekTotal === 0 && <p className="stats-empty">{t('stats.empty')}</p>}
+      <div className="stats-cards">
+        <div className="stats-card"><span className="stats-card-value">{t(streak === 1 ? 'stats.day' : 'stats.days', { n: streak })}</span><span className="stats-card-label">{t('stats.streak')}</span></div>
+        <div className="stats-card"><span className="stats-card-value">{pomo.sessions}</span><span className="stats-card-label">{t('stats.total')}</span></div>
+      </div>
+      {earlier > 0 && <p className="stats-note">{t('stats.earlier', { n: earlier })}</p>}
+      <div className="tasks-dialog-footer">
+        {confirming
+          ? <span className="stats-confirm"><span>{t('stats.clearAsk')}</span><button type="button" className="stats-link stats-link-danger" onClick={() => { pomo.clearStats(); setConfirming(false) }}>{t('stats.clearYes')}</button><button type="button" className="stats-link" onClick={() => setConfirming(false)}>{t('stats.clearNo')}</button></span>
+          : <button type="button" className="stats-link" onClick={() => setConfirming(true)}>{t('stats.clear')}</button>}
+        <button type="button" className="close-dialog-button" onClick={onClose}>{t('dialog.done')}</button>
+      </div>
+    </section>
+  </div>
+}
 
 function AboutDialog({ onClose }) {
   const { t } = useI18n()
@@ -808,6 +877,7 @@ function App() {
   const [theme, setTheme] = useState(() => { const saved = readStored('theme', 'forest').value; return THEMES.some(item => item.id === saved) ? saved : 'forest' })
   const [themeOpen, setThemeOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [statsOpen, setStatsOpen] = useState(false)
   const [focusOpen, setFocusOpen] = useState(false)
   const pomo = usePomodoro(t)
   const openTimerRef = useRef(null)
@@ -835,14 +905,15 @@ function App() {
       if (el && el.closest && el.closest('input, textarea, select, [contenteditable="true"]')) return
       if (focusOpen || aboutOpen) return
       const onControl = Boolean(el && el.closest && el.closest('button, a'))
-      if (event.code === 'Space') { if (onControl || themeOpen || backgroundOpen) return; event.preventDefault(); openTimerRef.current() }
-      else if (event.code === 'KeyB') { setThemeOpen(false); setBackgroundOpen(open => !open) }
-      else if (event.code === 'KeyT') { setBackgroundOpen(false); setThemeOpen(open => !open) }
+      if (event.code === 'Space') { if (onControl || themeOpen || backgroundOpen || statsOpen) return; event.preventDefault(); openTimerRef.current() }
+      else if (event.code === 'KeyB') { setThemeOpen(false); setStatsOpen(false); setBackgroundOpen(open => !open) }
+      else if (event.code === 'KeyT') { setBackgroundOpen(false); setStatsOpen(false); setThemeOpen(open => !open) }
+      else if (event.code === 'KeyS') { setBackgroundOpen(false); setThemeOpen(false); setStatsOpen(open => !open) }
       else if (event.code === 'KeyF') toggleFullscreen()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [focusOpen, themeOpen, backgroundOpen, aboutOpen])
+  }, [focusOpen, themeOpen, backgroundOpen, aboutOpen, statsOpen])
   const [today, setToday] = useState(localDateKey())
   const [intention, setIntention] = useState(() => {
     const saved = readStored('daily-intention', null).value
@@ -903,7 +974,7 @@ function App() {
     <header className="topbar">
       <div className="wordmark">QUIETLY<span>.</span></div>
       <div className="top-caption">{t('app.caption')}</div>
-      <div className="header-actions"><LanguageMenu /><button className="fullscreen-button" onClick={toggleFullscreen} aria-label={isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} title={`${isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} (F)`}>{isFullscreen ? "⤡" : "⤢"}</button><button className="background-button" onClick={() => { setThemeOpen(false); setBackgroundOpen(true) }} aria-label={t('header.backgrounds')} title={`${t('header.backgroundsTip')} (B)`}>▧</button><button className="settings-button" onClick={() => { setBackgroundOpen(false); setThemeOpen(true) }} aria-label={t('header.themes')} title={`${t('header.themesTip')} (T)`}>☼</button></div>
+      <div className="header-actions"><LanguageMenu /><button className="fullscreen-button" onClick={toggleFullscreen} aria-label={isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} title={`${isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} (F)`}>{isFullscreen ? "⤡" : "⤢"}</button><button className="stats-button" onClick={() => { setThemeOpen(false); setBackgroundOpen(false); setStatsOpen(true) }} aria-label={t('stats.tip')} title={`${t('stats.tip')} (S)`}><svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor" aria-hidden="true"><rect x="3" y="11" width="3.2" height="6" rx="1.2"/><rect x="8.4" y="6" width="3.2" height="11" rx="1.2"/><rect x="13.8" y="9" width="3.2" height="8" rx="1.2"/></svg></button><button className="background-button" onClick={() => { setThemeOpen(false); setStatsOpen(false); setBackgroundOpen(true) }} aria-label={t('header.backgrounds')} title={`${t('header.backgroundsTip')} (B)`}>▧</button><button className="settings-button" onClick={() => { setBackgroundOpen(false); setStatsOpen(false); setThemeOpen(true) }} aria-label={t('header.themes')} title={`${t('header.themesTip')} (T)`}>☼</button></div>
     </header>
     <section className="hero-row">
       <Clock tasks={tasks} habits={habits} today={today} />
@@ -927,6 +998,7 @@ function App() {
     </section>
     <div className="sound-bar"><SoundMixer /></div>
     <footer className="footer">{t('app.footer')}<div><button type="button" className="footer-link" onClick={() => setAboutOpen(true)}>{t('about.link')}</button></div></footer>
+    {statsOpen && <StatsDialog pomo={pomo} onClose={() => setStatsOpen(false)} />}
     {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
     {focusOpen && <PomodoroDialog pomo={pomo} onClose={() => setFocusOpen(false)} />}
     {themeOpen && <ThemeDialog currentTheme={theme} onSelect={chooseTheme} onClose={() => setThemeOpen(false)} />}
