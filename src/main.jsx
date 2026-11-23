@@ -61,6 +61,9 @@ function PomodoroDialog({ onClose, autoStart = false }) {
   const [sessions, setSessions] = useState(() => readStored('pomodoro-sessions', 0).value || 0)
   const [notificationStatus, setNotificationStatus] = useState(() => ('Notification' in window ? Notification.permission : 'unsupported'))
   const endAt = useRef(null)
+  const dialogRef = useRef(null)
+  const toggleRef = useRef(null)
+  const resetRef = useRef(null)
   const remainingRef = useRef(remaining)
   useEffect(() => { remainingRef.current = remaining }, [remaining])
   const switchMode = key => { setRunning(false); endAt.current = null; setMode(key); const next = durations[key] * 60; setRemaining(next); remainingRef.current = next }
@@ -68,18 +71,38 @@ function PomodoroDialog({ onClose, autoStart = false }) {
   const adjust = delta => { if (running) return; const nextDurations = { ...durations, [mode]: Math.max(1, Math.min(120, durations[mode] + delta)) }; setDurations(nextDurations); writeStored('pomodoro-durations', nextDurations); const next = nextDurations[mode] * 60; setRemaining(next); remainingRef.current = next }
   useEffect(() => { if (!running) return; endAt.current = Date.now() + remainingRef.current * 1000; const tick = () => { const next = Math.max(0, Math.ceil((endAt.current - Date.now()) / 1000)); setRemaining(next); remainingRef.current = next; if (next <= 0) { setRunning(false); endAt.current = null; if (mode === 'focus') { const updated = sessions + 1; setSessions(updated); writeStored('pomodoro-sessions', updated) } if ('Notification' in window && Notification.permission === 'granted') { try { const notice = new Notification('QUIETLY', { body: mode === 'focus' ? tRef.current('pomo.doneFocus') : tRef.current('pomo.doneBreak'), tag: 'quietly-pomodoro', requireInteraction: false }); notice.onclick = () => { window.focus(); notice.close(); }; } catch (error) { console.warn('QUIETLY notification could not be shown:', error); } } } }; tick(); const timer = window.setInterval(tick, 250); return () => window.clearInterval(timer) }, [running, mode, sessions])
   const start = () => { if (remaining <= 0) reset(); setRunning(true) }
+  toggleRef.current = () => (running ? setRunning(false) : start())
+  resetRef.current = reset
+  useEffect(() => { if (dialogRef.current) dialogRef.current.focus() }, [])
+  useEffect(() => {
+    const onKey = event => {
+      if (event.key === 'Escape') { onClose(); return }
+      if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return
+      const el = event.target
+      if (event.code === 'KeyR') {
+        if (el && el.closest && el.closest('input, textarea, select')) return
+        if (resetRef.current) resetRef.current()
+        return
+      }
+      if (event.code !== 'Space') return
+      if (el && el.closest && el.closest('button, input, textarea, select, a')) return
+      event.preventDefault(); if (toggleRef.current) toggleRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
   const mm = String(Math.floor(remaining / 60)).padStart(2, '0')
   const ss = String(remaining % 60).padStart(2, '0')
   const total = durations[mode] * 60
   const progress = total ? (total - remaining) / total : 0
   const enableNotifications = async () => { if (!('Notification' in window)) { setNotificationStatus('unsupported'); return } if (Notification.permission === 'default') { const permission = await Notification.requestPermission(); setNotificationStatus(permission); return } setNotificationStatus(Notification.permission) }
   return <div className="dialog-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
-    <section className="dialog pomodoro-dialog" role="dialog" aria-modal="true" aria-label={t('pomo.aria')}>
+    <section className="dialog pomodoro-dialog" ref={dialogRef} tabIndex={-1} style={{ outline: 'none' }} role="dialog" aria-modal="true" aria-label={t('pomo.aria')}>
       <div className="dialog-topline"><div className="panel-label">{t('pomo.label')}</div><button type="button" className="dialog-close" onClick={onClose} aria-label={t('pomo.close')}>×</button></div>
       <div className="pomodoro-modes">{Object.keys(modes).map(key => <button type="button" key={key} className={`pomodoro-mode ${mode === key ? 'active' : ''}`} onClick={() => switchMode(key)}>{modes[key].label}</button>)}</div>
       <div className="pomodoro-clock"><span>{mm}:{ss}</span><div className="pomodoro-track"><div style={{ width: `${progress * 100}%` }} /></div></div>
       <div className="pomodoro-adjust"><button type="button" onClick={() => adjust(-1)} disabled={running}>−</button><span>{t('pomo.minutes', { n: durations[mode] })}</span><button type="button" onClick={() => adjust(1)} disabled={running}>+</button></div>
-      <div className="pomodoro-controls"><button type="button" className="pomodoro-primary" onClick={() => running ? setRunning(false) : start()}>{running ? t('pomo.pause') : remaining < total ? t('pomo.resume') : t('pomo.start')}</button><button type="button" className="pomodoro-secondary" onClick={reset}>{t('pomo.reset')}</button></div>
+      <div className="pomodoro-controls"><button type="button" className="pomodoro-primary" onClick={() => running ? setRunning(false) : start()}>{running ? t('pomo.pause') : remaining < total ? t('pomo.resume') : t('pomo.start')}</button><button type="button" className="pomodoro-secondary" onClick={reset} title="R">{t('pomo.reset')}</button></div>
       <div className="pomodoro-session-count">{t(sessions === 1 ? 'pomo.session' : 'pomo.sessions', { n: sessions })}</div>
       <button type="button" className="pomodoro-notification" onClick={enableNotifications}>{notificationStatus === 'granted' ? t('pomo.notifOn') : notificationStatus === 'denied' ? t('pomo.notifBlocked') : notificationStatus === 'unsupported' ? t('pomo.notifUnsupported') : t('pomo.notifEnable')}</button>
     </section>
@@ -90,7 +113,7 @@ function FocusPanel({ onOpen }) {
   const { t } = useI18n()
   const saved = readStored('pomodoro-durations', null).value
   const minutes = saved && typeof saved === 'object' && saved.focus ? saved.focus : 25
-  return <button type="button" className="panel focus focus-button" onClick={onOpen} aria-label={t('focus.aria', { n: minutes })}>
+  return <button type="button" className="panel focus focus-button" title="Space" onClick={onOpen} aria-label={t('focus.aria', { n: minutes })}>
     <div className="panel-label">{t('focus.label')}</div>
     <h2>{t('focus.title')}</h2>
     <div className="focus-row"><span className="focus-time">{String(minutes).padStart(2, '0')}:00</span><span className="focus-start">{t('focus.start')}</span></div>
@@ -674,6 +697,7 @@ function App() {
   useEffect(() => { document.documentElement.lang = lang }, [lang])
   const [theme, setTheme] = useState(() => { const saved = readStored('theme', 'forest').value; return THEMES.some(item => item.id === saved) ? saved : 'forest' })
   const [themeOpen, setThemeOpen] = useState(false)
+  const [focusOpen, setFocusOpen] = useState(false)
   const [backgroundOpen, setBackgroundOpen] = useState(false)
   const [background, setBackground] = useState(() => { const saved = readStored('background', 'none').value; return BACKGROUNDS.some(item => item.id === saved) ? saved : 'none' })
   const chooseBackground = (nextBackground) => { setBackground(nextBackground); writeStored('background', nextBackground) }
@@ -690,6 +714,21 @@ function App() {
       else await document.documentElement.requestFullscreen()
     } catch (error) { console.warn('Fullscreen could not be toggled:', error) }
   }
+  useEffect(() => {
+    const onKey = event => {
+      if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return
+      const el = event.target
+      if (el && el.closest && el.closest('input, textarea, select, [contenteditable="true"]')) return
+      if (focusOpen) return
+      const onControl = Boolean(el && el.closest && el.closest('button, a'))
+      if (event.code === 'Space') { if (onControl || themeOpen || backgroundOpen) return; event.preventDefault(); setFocusOpen(true) }
+      else if (event.code === 'KeyB') { setThemeOpen(false); setBackgroundOpen(open => !open) }
+      else if (event.code === 'KeyT') { setBackgroundOpen(false); setThemeOpen(open => !open) }
+      else if (event.code === 'KeyF') toggleFullscreen()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [focusOpen, themeOpen, backgroundOpen])
   const [today, setToday] = useState(localDateKey())
   const [intention, setIntention] = useState(() => {
     const saved = readStored('daily-intention', null).value
@@ -700,7 +739,6 @@ function App() {
   const [habits, setHabits] = useState(() => { const saved = readStored('habits', []); return Array.isArray(saved.value) ? saved.value : [] })
   const [brainDump, setBrainDump] = useState(() => readStored('brain-dump', '').value || '')
   const [brainDumpStatus, setBrainDumpStatus] = useState('idle')
-  const [focusOpen, setFocusOpen] = useState(false)
 
 
   useEffect(() => {
@@ -751,7 +789,7 @@ function App() {
     <header className="topbar">
       <div className="wordmark">QUIETLY<span>.</span></div>
       <div className="top-caption">{t('app.caption')}</div>
-      <div className="header-actions"><LanguageMenu /><button className="fullscreen-button" onClick={toggleFullscreen} aria-label={isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} title={isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')}>{isFullscreen ? "⤡" : "⤢"}</button><button className="background-button" onClick={() => { setThemeOpen(false); setBackgroundOpen(true) }} aria-label={t('header.backgrounds')} title={t('header.backgroundsTip')}>▧</button><button className="settings-button" onClick={() => { setBackgroundOpen(false); setThemeOpen(true) }} aria-label={t('header.themes')} title={t('header.themesTip')}>☼</button></div>
+      <div className="header-actions"><LanguageMenu /><button className="fullscreen-button" onClick={toggleFullscreen} aria-label={isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} title={`${isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} (F)`}>{isFullscreen ? "⤡" : "⤢"}</button><button className="background-button" onClick={() => { setThemeOpen(false); setBackgroundOpen(true) }} aria-label={t('header.backgrounds')} title={`${t('header.backgroundsTip')} (B)`}>▧</button><button className="settings-button" onClick={() => { setBackgroundOpen(false); setThemeOpen(true) }} aria-label={t('header.themes')} title={`${t('header.themesTip')} (T)`}>☼</button></div>
     </header>
     <section className="hero-row">
       <Clock tasks={tasks} habits={habits} today={today} />

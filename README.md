@@ -28,6 +28,20 @@ Made by Jigyasa Ahuja.
 - Seven languages: English, Español, Français, Deutsch, Português, Italiano, हिन्दी
 - Installable as an app, and works offline
 
+## Keyboard shortcuts
+
+| Key | What it does |
+|---|---|
+| Space | Start the focus timer (and pause or resume it once it is open) |
+| R | Reset the focus timer (when the timer window is open) |
+| B | Open or close the Atmosphere Studio (backgrounds) |
+| T | Open or close the Theme Studio |
+| F | Enter or leave fullscreen |
+| Esc | Close any open window |
+
+The shortcuts do not trigger while you are typing in a box. In fullscreen, the browser uses
+the first Esc press to leave fullscreen, so press Esc again to close a window.
+
 ## Run it on your computer
 
 You need [Node.js](https://nodejs.org) (version 18 or newer).
