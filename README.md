@@ -8,7 +8,13 @@ Everything stays in your browser. There is no account, no server and no tracking
 
 Made by Jigyasa Ahuja.
 
-**Try it live: https://quietly-j309.netlify.app**
+**Try it live: https://quietly-focus.pages.dev**
+
+![Quietly main page](docs/screenshots/home.jpg)
+
+| | |
+|---|---|
+| ![Atmosphere Studio](docs/screenshots/atmosphere-studio.jpg) | ![Sound mixer](docs/screenshots/sound-bar.jpg) |
 
 ## Features
 
@@ -52,6 +58,12 @@ Notes for hosting:
   Hosting in a sub-folder needs the paths in `public/manifest.webmanifest`, `public/sw.js`
   and `index.html` changed.
 - It must be served over HTTPS (localhost is fine for testing) for install and offline to work.
+
+## Install it as an app
+
+Open the live site, then use the install icon in Chrome's address bar, or
+"Add to Home Screen" on iPhone. Install first, then use only the app, because each
+device and browser keeps its own separate, private copy of your data.
 
 ## Your data
 
