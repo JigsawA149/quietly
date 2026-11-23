@@ -25,6 +25,11 @@ Made by Jigyasa Ahuja.
 - Sound mixer: synthesised rain, brown noise and forest, plus nine real recordings,
   and your own audio files (kept in your browser only). A button saves all the recordings
   on your device so they keep playing without internet
+- A small round sound button in the corner (animated bars while sound plays) with play/pause
+  and an overall volume; open the full mixer when you want more
+- A calm Stats window: focus minutes for the last seven days, your current streak and a
+  total, kept only on your device and easy to clear
+- A short "How Quietly works" note explaining that nothing leaves your device
 - 9 colour themes and 19 background photos; the "Auto" theme adapts the colours to the photo
 - Seven languages: English, Español, Français, Deutsch, Português, Italiano, हिन्दी
 - Installable as an app, and works offline
