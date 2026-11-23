@@ -858,8 +858,9 @@ function GentlePlan() {
   </section>
 }
 
-function InlineList({ label, title, items, getText, isDone, sortDone = false, rowClass = '', doneClass = '', onAdd, onToggle, onEdit, onDelete, placeholder, empty, maxLength, footer }) {
+function InlineList({ label, title, items, getText, isDone, sortDone = false, rowClass = '', doneClass = '', onAdd, onToggle, onEdit, onDelete, onClearDone, placeholder, empty, maxLength, footer }) {
   const { t } = useI18n()
+  const [confirmingClear, setConfirmingClear] = useState(false)
   const [draft, setDraft] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [editText, setEditText] = useState('')
@@ -887,7 +888,11 @@ function InlineList({ label, title, items, getText, isDone, sortDone = false, ro
         </div>
       </div>)}
     </div>
-    <div className="inline-footer"><span className="inline-count">{footer}</span></div>
+    <div className="inline-footer"><span className="inline-count">{footer}</span>
+      {onClearDone && items.some(isDone) && (confirmingClear
+        ? <span className="stats-confirm"><span>{t('tasks.clearDoneAsk')}</span><button type="button" className="stats-link stats-link-danger" onClick={() => { onClearDone(); setConfirmingClear(false) }}>{t('tasks.clearDoneYes')}</button><button type="button" className="stats-link" onClick={() => setConfirmingClear(false)}>{t('tasks.clearDoneNo')}</button></span>
+        : <button type="button" className="stats-link" onClick={() => setConfirmingClear(true)}>{t('tasks.clearDone')}</button>)}
+    </div>
   </section>
 }
 
@@ -1011,6 +1016,7 @@ function App() {
   }
   const persistTasks = (next) => { setTasks(next); writeStored('tasks', next) }
   const addTask = (text) => persistTasks([{ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, text, completed: false, createdAt: Date.now() }, ...tasks])
+  const clearCompletedTasks = () => persistTasks(tasks.filter(task => !task.completed))
   const toggleTask = (id) => persistTasks(tasks.map(task => task.id === id ? { ...task, completed: !task.completed } : task))
   const editTask = (id, text) => persistTasks(tasks.map(task => task.id === id ? { ...task, text } : task))
   const deleteTask = (id) => persistTasks(tasks.filter(task => task.id !== id))
@@ -1051,7 +1057,7 @@ function App() {
         <InlineList label={t('habits.label')} title={t('habits.title')} items={habits} getText={h => h.name} isDone={h => h.completedDate === today} rowClass="habit-row" doneClass="habit-done" onAdd={addHabit} onToggle={toggleHabit} onEdit={editHabit} onDelete={deleteHabit} placeholder={t('habits.placeholder')} empty={t('habits.empty')} maxLength={100} footer={t('habits.footer', { done: habits.filter(h => h.completedDate === today).length, total: habits.length })} />
       </div>
       <div className="dashboard-column dashboard-middle">
-        <InlineList label={t('tasks.label')} title={t('tasks.title')} items={tasks} getText={task => task.text} isDone={task => task.completed} sortDone doneClass="task-completed" onAdd={addTask} onToggle={toggleTask} onEdit={editTask} onDelete={deleteTask} placeholder={t('tasks.placeholder')} empty={t('tasks.empty')} maxLength={160} footer={t('tasks.footer', { left: tasks.filter(task => !task.completed).length, done: tasks.filter(task => task.completed).length })} />
+        <InlineList label={t('tasks.label')} title={t('tasks.title')} items={tasks} getText={task => task.text} isDone={task => task.completed} sortDone doneClass="task-completed" onAdd={addTask} onToggle={toggleTask} onEdit={editTask} onDelete={deleteTask} onClearDone={clearCompletedTasks} placeholder={t('tasks.placeholder')} empty={t('tasks.empty')} maxLength={160} footer={t('tasks.footer', { left: tasks.filter(task => !task.completed).length, done: tasks.filter(task => task.completed).length })} />
         <InlineNote label={t('dump.label')} title={t('dump.title')} value={brainDump} onChange={handleBrainDumpChange} onClear={clearBrainDump} placeholder={t('dump.placeholder')} rows={5} status={brainDumpStatus} />
       </div>
       <div className="dashboard-column dashboard-right">

@@ -820,3 +820,6 @@ body { font-family:'DM Sans','Noto Sans Devanagari','Kohinoor Devanagari','Devan
 .sound-open-all:hover { color:var(--cream); }
 .sound-pop .sound-note { margin:0 !important; }
 .app-shell[data-theme="paper"] .sound-pop .sound-strip-now { color:#514436; }
+.inline-footer { flex-wrap:wrap; }
+.inline-footer .stats-link { font-size:13px; }
+.inline-footer .stats-confirm { font-size:13px; justify-content:flex-end; }
