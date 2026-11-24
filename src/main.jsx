@@ -1142,7 +1142,7 @@ function App() {
   const i18n = useMemo(() => { const info = LANGUAGES.find(item => item.code === lang) || LANGUAGES[0]; return { lang, t: makeT(lang), locale: info.locale, hour12: info.hour12, setLang: code => { setLangState(code); writeStored('language', code) } } }, [lang])
   const t = i18n.t
   useEffect(() => { document.documentElement.lang = lang }, [lang])
-  const [theme, setTheme] = useState(() => { const saved = readStored('theme', 'forest').value; return THEMES.some(item => item.id === saved) ? saved : 'forest' })
+  const [theme, setTheme] = useState(() => { const saved = readStored('theme', 'auto').value; return THEMES.some(item => item.id === saved) ? saved : 'auto' })
   const [themeOpen, setThemeOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
@@ -1154,7 +1154,7 @@ function App() {
   const openTimerRef = useRef(null)
   openTimerRef.current = () => { if (!pomo.running && (pomo.remaining >= pomo.total || pomo.remaining <= 0)) pomo.start(); setFocusOpen(true) }
   const [backgroundOpen, setBackgroundOpen] = useState(false)
-  const [background, setBackground] = useState(() => { const saved = readStored('background', 'none').value; return BACKGROUNDS.some(item => item.id === saved) ? saved : 'none' })
+  const [background, setBackground] = useState(() => { const saved = readStored('background', 'hemlock-path').value; return BACKGROUNDS.some(item => item.id === saved) ? saved : 'hemlock-path' })
   const chooseBackground = (nextBackground) => { setBackground(nextBackground); writeStored('background', nextBackground) }
   const chooseTheme = (nextTheme) => { setTheme(nextTheme); writeStored('theme', nextTheme) }
   const [isFullscreen, setIsFullscreen] = useState(false)
