@@ -349,6 +349,11 @@ function ThemeDialog({ currentTheme, onSelect, onClose }) {
 
 const BACKGROUNDS = [
   { id: 'none', category: 'minimal', image: '' },
+  { id: 'live-aurora', category: 'living', image: '', scene: 'aurora', thumb: 'radial-gradient(60% 80% at 25% 30%, rgba(80,200,160,.55), transparent 70%), radial-gradient(60% 80% at 75% 60%, rgba(120,110,220,.5), transparent 70%), linear-gradient(#0b1424,#101d2e)' },
+  { id: 'live-fireflies', category: 'living', image: '', scene: 'fireflies', thumb: 'radial-gradient(circle at 30% 60%, rgba(226,230,140,.9) 0 2px, transparent 5px), radial-gradient(circle at 62% 38%, rgba(226,230,140,.8) 0 2px, transparent 5px), radial-gradient(circle at 78% 70%, rgba(226,230,140,.8) 0 2px, transparent 5px), linear-gradient(#0b1710,#1a2e20)' },
+  { id: 'live-rain', category: 'living', image: '', scene: 'rain', thumb: 'repeating-linear-gradient(100deg, transparent 0 9px, rgba(190,215,225,.28) 9px 10px), linear-gradient(#0d1b22,#1b3640)' },
+  { id: 'live-snow', category: 'living', image: '', scene: 'snow', thumb: 'radial-gradient(circle at 25% 30%, rgba(255,255,255,.9) 0 1.5px, transparent 3px), radial-gradient(circle at 60% 55%, rgba(255,255,255,.8) 0 2px, transparent 4px), radial-gradient(circle at 80% 25%, rgba(255,255,255,.8) 0 1.5px, transparent 3px), linear-gradient(#0f1829,#24375a)' },
+  { id: 'live-embers', category: 'living', image: '', scene: 'embers', thumb: 'radial-gradient(70% 60% at 50% 100%, rgba(255,140,60,.55), transparent 70%), linear-gradient(#150b07,#2e170d)' },
   { id: 'hemlock-path', category: 'forest', image: '/backgrounds/hemlock-path.jpg' },
   { id: 'mossy-stream', category: 'forest', image: '/backgrounds/mossy-stream.jpg' },
   { id: 'candlelit-window', category: 'cozy', image: '/backgrounds/candlelit-window.jpg' },
@@ -385,7 +390,7 @@ function BackgroundDialog({ currentBackground, onSelect, onClose }) {
       <h2 id="background-dialog-title">{t('bg.title')}</h2><p className="dialog-description">{t('bg.desc')}</p>
       <div className="background-categories" role="group" aria-label={t('bg.categories')}>{categories.map(item => <button type="button" key={item} className={`background-category ${category === item ? 'active' : ''}`} onClick={() => setCategory(item)}>{t(`cat.${item}`)}</button>)}</div>
       <div className="background-options">{visibleBackgrounds.map(item => <button type="button" key={item.id} className={`background-option ${currentBackground === item.id ? 'selected' : ''}`} onClick={() => onSelect(item.id)} aria-pressed={currentBackground === item.id}>
-        <span className="background-thumb" style={item.image ? { backgroundImage: `linear-gradient(rgba(10,18,14,.18),rgba(10,18,14,.3)), url("${item.image}")` } : undefined}><span>{item.id === 'none' ? 'QUIETLY' : ''}</span></span>
+        <span className="background-thumb" style={item.image ? { backgroundImage: `linear-gradient(rgba(10,18,14,.18),rgba(10,18,14,.3)), url("${item.image}")` } : item.thumb ? { backgroundImage: item.thumb } : undefined}><span>{item.id === 'none' ? 'QUIETLY' : ''}</span></span>
         <span className="background-option-name">{t(`bg.${item.id}.name`)}</span><span className="background-option-mood">{t(`bg.${item.id}.mood`)}</span>{currentBackground === item.id && <span className="theme-selected">{t('bg.selected')}</span>}
       </button>)}</div>
       <div className="tasks-dialog-footer"><span>{t('bg.saved')}</span><button type="button" className="close-dialog-button" onClick={onClose}>{t('dialog.done')}</button></div>
@@ -414,7 +419,171 @@ const PHOTO_PALETTES = {
   'lantern-courtyard': { cream:'#ede2de', sage:'#cbb5ae', gold:'#caa79b', muted:'#d0c2be', panel:'rgba(44,36,33,0.72)', border:'rgba(217,198,191,0.18)', deep:'#191210', 'gold-rgb':'202,167,155', 'sage-rgb':'203,181,174', 'tint-rgb':'217,198,191', 'ink-rgb':'13,9,8', 'dialog-a':'rgba(49,40,37,0.98)', 'dialog-b':'rgba(26,21,20,0.98)', 'panel-hover':'rgba(55,45,42,0.78)', 'card-a':'rgba(55,45,42,0.72)', 'card-b':'rgba(35,28,26,0.62)', 'focus-a':'rgba(59,47,43,0.7)', 'focus-b':'rgba(35,28,26,0.62)', shade:'rgba(16,11,10,0.5)' },
 }
 
+PHOTO_PALETTES['live-aurora'] = PHOTO_PALETTES['loch-dusk']
+PHOTO_PALETTES['live-fireflies'] = PHOTO_PALETTES['mossy-stream']
+PHOTO_PALETTES['live-rain'] = PHOTO_PALETTES['teal-fog']
+PHOTO_PALETTES['live-snow'] = PHOTO_PALETTES['snowfall-forest']
+PHOTO_PALETTES['live-embers'] = PHOTO_PALETTES['candlelit-window']
 function paletteForBackground(id) { return PHOTO_PALETTES[id] || PHOTO_PALETTES['hemlock-path'] }
+
+// Moving backgrounds, drawn with code (no video files): calm, about 30 frames a second,
+// paused when the tab is hidden, and a single still frame if the system asks for reduced motion.
+const SCENE_SKY = {
+  aurora: ['#0a1322', '#12233a'],
+  fireflies: ['#08130d', '#18291e'],
+  rain: ['#0c1a21', '#1a3540'],
+  snow: ['#0e1727', '#243759'],
+  embers: ['#140a06', '#2c160c'],
+}
+
+function LiveBackground({ scene }) {
+  const canvasRef = useRef(null)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return undefined
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return undefined
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    let width = 0, height = 0, dpr = 1, raf = 0, last = 0, time = 0, things = []
+    const low = document.createElement('canvas'); const lctx = low.getContext('2d')
+    const rand = (a, b) => a + Math.random() * (b - a)
+
+    const seed = () => {
+      const area = width * height
+      if (scene === 'fireflies') things = Array.from({ length: Math.max(18, Math.min(60, Math.round(area / 30000))) }, () => ({ x: rand(0, width), y: rand(height * 0.25, height), r: rand(1.2, 2.6), p: rand(0, 6.28), s: rand(0.4, 1.1), a: rand(0, 6.28) }))
+      else if (scene === 'rain') things = Array.from({ length: Math.max(60, Math.min(220, Math.round(area / 9000))) }, () => ({ x: rand(0, width), y: rand(0, height), l: rand(12, 34), v: rand(520, 900), o: rand(0.12, 0.34) }))
+      else if (scene === 'snow') things = Array.from({ length: Math.max(50, Math.min(170, Math.round(area / 12000))) }, () => ({ x: rand(0, width), y: rand(0, height), r: rand(0.8, 3), v: rand(18, 55), p: rand(0, 6.28), w: rand(0.3, 1) }))
+      else if (scene === 'embers') things = Array.from({ length: Math.max(24, Math.min(80, Math.round(area / 24000))) }, () => ({ x: rand(0, width), y: rand(height * 0.4, height), r: rand(0.8, 2.2), v: rand(14, 42), p: rand(0, 6.28), life: rand(0, 1) }))
+      else things = []
+    }
+
+    const resize = () => {
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5)
+      width = window.innerWidth; height = window.innerHeight
+      canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr)
+      low.width = Math.max(16, Math.ceil(width / 8)); low.height = Math.max(16, Math.ceil(height / 8))
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      seed()
+    }
+
+    const sky = () => {
+      const [top, bottom] = SCENE_SKY[scene] || SCENE_SKY.aurora
+      const g = ctx.createLinearGradient(0, 0, 0, height)
+      g.addColorStop(0, top); g.addColorStop(1, bottom)
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.fillStyle = g; ctx.fillRect(0, 0, width, height)
+    }
+
+    const glow = (x, y, radius, rgb, alpha) => {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, radius)
+      g.addColorStop(0, `rgba(${rgb},${alpha})`); g.addColorStop(1, `rgba(${rgb},0)`)
+      ctx.fillStyle = g; ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2)
+    }
+
+    const draw = (dt) => {
+      sky()
+      const t = time
+      if (scene === 'aurora') {
+        ctx.globalCompositeOperation = 'lighter'
+        const big = Math.max(width, height)
+        glow(width * (0.25 + 0.14 * Math.sin(t * 0.22)), height * (0.35 + 0.08 * Math.cos(t * 0.27)), big * 0.55, '70,200,160', 0.2)
+        glow(width * (0.72 + 0.12 * Math.cos(t * 0.19)), height * (0.5 + 0.1 * Math.sin(t * 0.24)), big * 0.5, '120,110,225', 0.18)
+        const ribbons = [
+          { rgb: '80,230,170', y: 0.26, amp: 0.08, h: 0.30, speed: 0.42, ph: 0, a: 0.34 },
+          { rgb: '100,170,235', y: 0.34, amp: 0.07, h: 0.26, speed: 0.33, ph: 2.1, a: 0.26 },
+          { rgb: '160,120,240', y: 0.22, amp: 0.09, h: 0.24, speed: 0.28, ph: 4.2, a: 0.22 },
+        ]
+        if (lctx) {
+          lctx.setTransform(1, 0, 0, 1, 0, 0)
+          lctx.clearRect(0, 0, low.width, low.height)
+          lctx.globalCompositeOperation = 'lighter'
+          for (const r of ribbons) {
+            for (let x = 0; x < low.width; x++) {
+              const u = x / low.width
+              const wave = Math.sin(u * 5 + t * r.speed + r.ph) * 0.6 + Math.sin(u * 11 - t * r.speed * 1.3 + r.ph) * 0.4
+              const top = low.height * (r.y + r.amp * wave)
+              const hh = low.height * r.h * (0.65 + 0.35 * Math.sin(u * 3.2 + t * r.speed * 0.8 + r.ph))
+              const g = lctx.createLinearGradient(0, top, 0, top + hh)
+              g.addColorStop(0, `rgba(${r.rgb},0)`); g.addColorStop(0.35, `rgba(${r.rgb},${r.a})`); g.addColorStop(1, `rgba(${r.rgb},0)`)
+              lctx.fillStyle = g; lctx.fillRect(x, top, 1, hh)
+            }
+          }
+          ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'
+          ctx.drawImage(low, 0, 0, width, height)
+        }
+        ctx.globalCompositeOperation = 'source-over'
+      } else if (scene === 'fireflies') {
+        glow(width * 0.5, height * 1.05, Math.max(width, height) * 0.7, '60,90,50', 0.18)
+        ctx.globalCompositeOperation = 'lighter'
+        for (const f of things) {
+          f.a += dt * 0.25 * f.s; f.p += dt * 0.9 * f.s
+          f.x += Math.cos(f.a) * 14 * dt * f.s; f.y += Math.sin(f.a * 0.8) * 10 * dt * f.s
+          if (f.x < -20) f.x = width + 20; if (f.x > width + 20) f.x = -20
+          if (f.y < height * 0.15) f.y = height; if (f.y > height + 20) f.y = height * 0.2
+          const pulse = 0.35 + 0.65 * Math.max(0, Math.sin(f.p))
+          glow(f.x, f.y, 26 * f.r * 0.6 + 8, '226,232,140', 0.55 * pulse)
+          ctx.fillStyle = `rgba(250,250,190,${0.9 * pulse})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.7, 0, 6.283); ctx.fill()
+        }
+        ctx.globalCompositeOperation = 'source-over'
+      } else if (scene === 'rain') {
+        glow(width * 0.5, height * 1.1, Math.max(width, height) * 0.7, '90,140,150', 0.14)
+        ctx.lineWidth = 1; ctx.lineCap = 'round'
+        for (const d of things) {
+          d.y += d.v * dt; d.x -= d.v * dt * 0.12
+          if (d.y > height + 40) { d.y = -d.l; d.x = rand(0, width + 80) }
+          if (d.x < -40) d.x = width + 40
+          ctx.strokeStyle = `rgba(190,215,225,${d.o})`
+          ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(d.x + d.l * 0.12, d.y - d.l); ctx.stroke()
+        }
+      } else if (scene === 'snow') {
+        glow(width * 0.5, height * 1.05, Math.max(width, height) * 0.7, '110,140,200', 0.13)
+        ctx.fillStyle = 'rgba(255,255,255,1)'
+        for (const f of things) {
+          f.p += dt * f.w; f.y += f.v * dt; f.x += Math.sin(f.p) * 14 * dt
+          if (f.y > height + 6) { f.y = -6; f.x = rand(0, width) }
+          if (f.x > width + 6) f.x = -6; if (f.x < -6) f.x = width + 6
+          ctx.globalAlpha = Math.min(0.9, 0.25 + f.r * 0.22)
+          ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 6.283); ctx.fill()
+        }
+        ctx.globalAlpha = 1
+      } else if (scene === 'embers') {
+        const flicker = 0.85 + 0.15 * Math.sin(t * 1.3) * Math.sin(t * 0.7 + 1)
+        glow(width * 0.5, height * 1.08, Math.max(width, height) * 0.75, '255,130,50', 0.34 * flicker)
+        glow(width * 0.5, height * 1.02, Math.max(width, height) * 0.4, '255,170,80', 0.2 * flicker)
+        ctx.globalCompositeOperation = 'lighter'
+        for (const e of things) {
+          e.life += dt * 0.12; e.p += dt
+          e.y -= e.v * dt; e.x += Math.sin(e.p * 0.9) * 10 * dt
+          if (e.y < -10 || e.life > 1) { e.y = height + rand(0, 40); e.x = rand(0, width); e.life = 0 }
+          const fade = Math.sin(Math.min(1, e.life) * Math.PI)
+          glow(e.x, e.y, 10 * e.r, '255,150,70', 0.5 * fade)
+          ctx.fillStyle = `rgba(255,205,140,${0.85 * fade})`; ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 0.6, 0, 6.283); ctx.fill()
+        }
+        ctx.globalCompositeOperation = 'source-over'
+      }
+    }
+
+    const frame = (now) => {
+      raf = requestAnimationFrame(frame)
+      if (document.hidden) { last = 0; return }
+      if (!last) last = now
+      const elapsed = now - last
+      if (elapsed < 33) return
+      last = now
+      const dt = Math.min(elapsed / 1000, 0.1)
+      time += dt
+      draw(dt)
+    }
+
+    resize()
+    if (reduced) { draw(0.016) }
+    else raf = requestAnimationFrame(frame)
+    const onResize = () => { resize(); if (reduced) draw(0.016) }
+    window.addEventListener('resize', onResize)
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize) }
+  }, [scene])
+  return <canvas ref={canvasRef} className="live-background" aria-hidden="true" />
+}
 
 
 
@@ -909,6 +1078,18 @@ function InlineNote({ label, title, value, onChange, onClear, placeholder, rows,
   </section>
 }
 
+function HeaderIcon({ name }) {
+  const paths = {
+    language: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3c2.6 2.7 3.9 5.7 3.9 9S14.600 18.300 12 21c-2.600-2.700-3.900-5.700-3.900-9S9.400 5.700 12 3z" /></>,
+    'fullscreen-enter': <><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M16 3h3a2 2 0 0 1 2 2v3" /><path d="M8 21H5a2 2 0 0 1-2-2v-3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></>,
+    'fullscreen-exit': <><path d="M8 3v3a2 2 0 0 1-2 2H3" /><path d="M16 3v3a2 2 0 0 0 2 2h3" /><path d="M8 21v-3a2 2 0 0 0-2-2H3" /><path d="M16 21v-3a2 2 0 0 1 2-2h3" /></>,
+    stats: <><path d="M5 20v-6" /><path d="M12 20V5" /><path d="M19 20V11" /></>,
+    backgrounds: <><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="9" cy="9" r="1.8" /><path d="M21 15l-3.3-3.3a2 2 0 0 0-2.8 0L6 21" /></>,
+    themes: <><path d="M12 21a9 9 0 1 1 9-9c0 2.200-1.800 3.500-4 3.500h-1.700a1.800 1.800 0 0 0-1.300 3 1.800 1.800 0 0 1-2 2.500z" /><circle cx="7.800" cy="11" r="1" fill="currentColor" stroke="none" /><circle cx="10.500" cy="7.200" r="1" fill="currentColor" stroke="none" /><circle cx="15.200" cy="7.600" r="1" fill="currentColor" stroke="none" /></>,
+  }
+  return <svg className="header-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>
+}
+
 function LanguageMenu() {
   const { t, lang, setLang } = useI18n()
   const [open, setOpen] = useState(false)
@@ -923,7 +1104,7 @@ function LanguageMenu() {
   }, [open])
   return <div className="language-menu" ref={ref}>
     <button type="button" className="language-button" onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open} aria-label={t('header.language')} title={t('header.language')}>
-      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9S14.500 18.400 12 21c-2.500-2.600-3.800-5.600-3.800-9S9.500 5.600 12 3z"/></svg>
+      <HeaderIcon name="language" />
     </button>
     {open && <div className="language-pop" role="listbox" aria-label={t('header.language')}>
       {LANGUAGES.map(item => <button type="button" role="option" aria-selected={item.code === lang} key={item.code} lang={item.code} className={item.code === lang ? 'selected' : ''} onClick={() => { setLang(item.code); setOpen(false) }}>{item.label}{item.code === lang && <span aria-hidden="true"> ✓</span>}</button>)}
@@ -1036,13 +1217,14 @@ function App() {
 
   const selectedBackground = BACKGROUNDS.find(item => item.id === background)
   return <I18nContext.Provider value={i18n}><main className="app-shell" data-theme={theme} style={theme === 'auto' ? Object.fromEntries(Object.entries(paletteForBackground(background)).map(([key, value]) => [`--${key}`, value])) : undefined}>
+    {selectedBackground?.scene && <LiveBackground scene={selectedBackground.scene} />}
     {selectedBackground?.image && <div className="wallpaper" style={{ backgroundImage: `url("${selectedBackground.image}")` }} aria-hidden="true" />}
     {selectedBackground?.image && <div className="wallpaper-shade" aria-hidden="true" />}
     <div className="ambient ambient-one"/><div className="ambient ambient-two"/><div className="grain" />
     <header className="topbar">
       <div className="wordmark">QUIETLY<span>.</span></div>
       <div className="top-caption">{t('app.caption')}</div>
-      <div className="header-actions"><LanguageMenu /><button className="fullscreen-button" onClick={toggleFullscreen} aria-label={isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} title={`${isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} (F)`}>{isFullscreen ? "⤡" : "⤢"}</button><button className="stats-button" onClick={() => { setThemeOpen(false); setBackgroundOpen(false); setStatsOpen(true) }} aria-label={t('stats.tip')} title={`${t('stats.tip')} (S)`}><svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor" aria-hidden="true"><rect x="3" y="11" width="3.2" height="6" rx="1.2"/><rect x="8.4" y="6" width="3.2" height="11" rx="1.2"/><rect x="13.8" y="9" width="3.2" height="8" rx="1.2"/></svg></button><button className="background-button" onClick={() => { setThemeOpen(false); setStatsOpen(false); setBackgroundOpen(true) }} aria-label={t('header.backgrounds')} title={`${t('header.backgroundsTip')} (B)`}>▧</button><button className="settings-button" onClick={() => { setBackgroundOpen(false); setStatsOpen(false); setThemeOpen(true) }} aria-label={t('header.themes')} title={`${t('header.themesTip')} (T)`}>☼</button></div>
+      <div className="header-actions"><LanguageMenu /><button className="fullscreen-button" onClick={toggleFullscreen} aria-label={isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} title={`${isFullscreen ? t('header.fullscreenExit') : t('header.fullscreenEnter')} (F)`}><HeaderIcon name={isFullscreen ? 'fullscreen-exit' : 'fullscreen-enter'} /></button><button className="stats-button" onClick={() => { setThemeOpen(false); setBackgroundOpen(false); setStatsOpen(true) }} aria-label={t('stats.tip')} title={`${t('stats.tip')} (S)`}><HeaderIcon name="stats" /></button><button className="background-button" onClick={() => { setThemeOpen(false); setStatsOpen(false); setBackgroundOpen(true) }} aria-label={t('header.backgrounds')} title={`${t('header.backgroundsTip')} (B)`}><HeaderIcon name="backgrounds" /></button><button className="settings-button" onClick={() => { setBackgroundOpen(false); setStatsOpen(false); setThemeOpen(true) }} aria-label={t('header.themes')} title={`${t('header.themesTip')} (T)`}><HeaderIcon name="themes" /></button></div>
     </header>
     <section className="hero-row">
       <Clock tasks={tasks} habits={habits} today={today} />

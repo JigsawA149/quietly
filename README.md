@@ -30,7 +30,9 @@ Made by Jigyasa Ahuja.
 - A calm Stats window: focus minutes for the last seven days, your current streak and a
   total, kept only on your device and easy to clear
 - A short "How Quietly works" note explaining that nothing leaves your device
-- 9 colour themes and 19 background photos; the "Auto" theme adapts the colours to the photo
+- 9 colour themes, 19 background photos and five slowly moving scenes (aurora, fireflies, rain, snow, embers);
+  the "Auto" theme adapts the colours to the background. Moving scenes pause when the tab is hidden and
+  stay still if your system asks for reduced motion
 - Seven languages: English, Español, Français, Deutsch, Português, Italiano, हिन्दी
 - Installable as an app, and works offline
 

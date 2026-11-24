@@ -823,3 +823,19 @@ body { font-family:'DM Sans','Noto Sans Devanagari','Kohinoor Devanagari','Devan
 .inline-footer { flex-wrap:wrap; }
 .inline-footer .stats-link { font-size:13px; }
 .inline-footer .stats-confirm { font-size:13px; justify-content:flex-end; }
+
+/* v3.8 one consistent set of top bar icons */
+.header-actions { gap:10px; }
+.language-button, .fullscreen-button, .stats-button, .background-button, .settings-button {
+  width:44px; height:44px; padding:0; font-size:0; line-height:0; display:inline-grid; place-items:center;
+  border:1px solid rgba(var(--sage-rgb),.3); border-radius:50%; background:rgba(255,255,255,.04); color:var(--sage); cursor:pointer;
+  transition:background .2s ease, border-color .2s ease, color .2s ease, transform .15s ease;
+}
+.language-button:hover, .fullscreen-button:hover, .stats-button:hover, .background-button:hover, .settings-button:hover { background:rgba(var(--gold-rgb),.12); border-color:rgba(var(--gold-rgb),.55); color:var(--gold); transform:none; }
+.language-button:active, .fullscreen-button:active, .stats-button:active, .background-button:active, .settings-button:active { transform:scale(.95); }
+.header-icon { display:block; width:20px; height:20px; }
+.app-shell[data-theme="auto"] .language-button, .app-shell[data-theme="auto"] .fullscreen-button, .app-shell[data-theme="auto"] .stats-button, .app-shell[data-theme="auto"] .background-button, .app-shell[data-theme="auto"] .settings-button { color:var(--gold); }
+@media (max-width:600px) { .language-button, .fullscreen-button, .stats-button, .background-button, .settings-button { width:40px; height:40px; } .header-actions { gap:7px; } }
+
+/* v3.8 moving backgrounds */
+.live-background { position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
