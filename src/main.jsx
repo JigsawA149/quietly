@@ -1187,6 +1187,13 @@ function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [focusOpen, themeOpen, backgroundOpen, aboutOpen, statsOpen])
+  useEffect(() => {
+    const bars = { forest:'#102017', paper:'#ded2c0', midnight:'#182233', rose:'#2c222b', sage:'#222d27', amber:'#2d2319', lavender:'#272335', coastal:'#1f2c32' }
+    const color = theme === 'auto' ? paletteForBackground(background).deep : (bars[theme] || bars.forest)
+    let meta = document.querySelector('meta[name="theme-color"]')
+    if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta) }
+    meta.setAttribute('content', color)
+  }, [theme, background])
   const [today, setToday] = useState(localDateKey())
   const [habitLog, setHabitLog] = useState(() => { const saved = readStored('habit-log', {}).value; return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {} })
   const [intention, setIntention] = useState(() => {
