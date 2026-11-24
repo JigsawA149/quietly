@@ -1193,6 +1193,7 @@ function App() {
     let meta = document.querySelector('meta[name="theme-color"]')
     if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta) }
     meta.setAttribute('content', color)
+    try { localStorage.setItem('quietly_v2_bar-color', color) } catch {}
   }, [theme, background])
   const [today, setToday] = useState(localDateKey())
   const [habitLog, setHabitLog] = useState(() => { const saved = readStored('habit-log', {}).value; return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {} })
