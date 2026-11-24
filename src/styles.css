@@ -839,3 +839,9 @@ body { font-family:'DM Sans','Noto Sans Devanagari','Kohinoor Devanagari','Devan
 
 /* v3.8 moving backgrounds */
 .live-background { position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+
+/* v3.9 habits in stats */
+.stats-habits-head { margin-top:22px; }
+.stats-chart-habits { height:86px; }
+.stats-bar-habit { background:rgba(var(--gold-rgb),.38); }
+.stats-chart-habits .stats-col.today .stats-bar-habit { background:var(--gold); }

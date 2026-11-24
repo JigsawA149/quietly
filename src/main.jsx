@@ -260,7 +260,15 @@ function currentStreak(log) {
   return n
 }
 
-function StatsDialog({ pomo, onClose }) {
+function habitStreak(log) {
+  const d = new Date(); d.setHours(12, 0, 0, 0)
+  if (!log[localDateKey(d)]?.d) d.setDate(d.getDate() - 1)
+  let n = 0
+  while (log[localDateKey(d)]?.d) { n++; d.setDate(d.getDate() - 1) }
+  return n
+}
+
+function StatsDialog({ pomo, habitLog, habitsNow, onClearHabits, onClose }) {
   const { t, locale } = useI18n()
   const ref = useRef(null)
   const [confirming, setConfirming] = useState(false)
@@ -276,6 +284,11 @@ function StatsDialog({ pomo, onClose }) {
   const peak = Math.max(...minutes, 1)
   const fmt = m => (m >= 60 ? t('stats.hm', { h: Math.floor(m / 60), m: m % 60 }) : t('stats.m', { m }))
   const streak = currentStreak(pomo.log)
+  const hDone = days.map(day => habitLog[day.key]?.d || 0)
+  const hTotal = days.map((day, i) => Math.max(habitLog[day.key]?.n || 0, hDone[i]))
+  const hWeek = hDone.reduce((a, b) => a + b, 0)
+  const hStreak = habitStreak(habitLog)
+  const hToday = hDone[6]
   const logged = Object.values(pomo.log).reduce((a, d) => a + (d.s || 0), 0)
   const earlier = Math.max(0, pomo.sessions - logged)
   const weekday = date => { try { return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(date) } catch { return '' } }
@@ -296,9 +309,21 @@ function StatsDialog({ pomo, onClose }) {
         <div className="stats-card"><span className="stats-card-value">{pomo.sessions}</span><span className="stats-card-label">{t('stats.total')}</span></div>
       </div>
       {earlier > 0 && <p className="stats-note">{t('stats.earlier', { n: earlier })}</p>}
+      <div className="stats-week stats-habits-head"><span className="stats-week-label">{t('stats.habitsWeek')}</span><span className="stats-week-total">{hWeek ? t('stats.habitsCount', { n: hWeek }) : '—'}</span></div>
+      <div className="stats-chart stats-chart-habits" role="img" aria-label={t('stats.habitsChartAria')}>
+        {days.map((day, i) => <div className={`stats-col ${i === 6 ? 'today' : ''}`} key={day.key} title={hDone[i] ? t('stats.habitsOf', { d: hDone[i], n: hTotal[i] }) : ''}>
+          <div className="stats-bar-wrap"><div className="stats-bar stats-bar-habit" style={{ height: hDone[i] ? `${Math.max(10, Math.round((hDone[i] / Math.max(hTotal[i], 1)) * 100))}%` : '3px' }} /></div>
+          <span className="stats-day">{weekday(day.date)}</span>
+        </div>)}
+      </div>
+      {hWeek === 0 && <p className="stats-empty">{habitsNow ? t('stats.habitsEmpty') : t('stats.habitsNone')}</p>}
+      <div className="stats-cards">
+        <div className="stats-card"><span className="stats-card-value">{habitsNow ? t('stats.habitsOf', { d: hToday, n: habitsNow }) : '—'}</span><span className="stats-card-label">{t('stats.habitsToday')}</span></div>
+        <div className="stats-card"><span className="stats-card-value">{t(hStreak === 1 ? 'stats.day' : 'stats.days', { n: hStreak })}</span><span className="stats-card-label">{t('stats.habitsStreak')}</span></div>
+      </div>
       <div className="tasks-dialog-footer">
         {confirming
-          ? <span className="stats-confirm"><span>{t('stats.clearAsk')}</span><button type="button" className="stats-link stats-link-danger" onClick={() => { pomo.clearStats(); setConfirming(false) }}>{t('stats.clearYes')}</button><button type="button" className="stats-link" onClick={() => setConfirming(false)}>{t('stats.clearNo')}</button></span>
+          ? <span className="stats-confirm"><span>{t('stats.clearAsk')}</span><button type="button" className="stats-link stats-link-danger" onClick={() => { pomo.clearStats(); onClearHabits(); setConfirming(false) }}>{t('stats.clearYes')}</button><button type="button" className="stats-link" onClick={() => setConfirming(false)}>{t('stats.clearNo')}</button></span>
           : <button type="button" className="stats-link" onClick={() => setConfirming(true)}>{t('stats.clear')}</button>}
         <button type="button" className="close-dialog-button" onClick={onClose}>{t('dialog.done')}</button>
       </div>
@@ -1163,6 +1188,7 @@ function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [focusOpen, themeOpen, backgroundOpen, aboutOpen, statsOpen])
   const [today, setToday] = useState(localDateKey())
+  const [habitLog, setHabitLog] = useState(() => { const saved = readStored('habit-log', {}).value; return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {} })
   const [intention, setIntention] = useState(() => {
     const saved = readStored('daily-intention', null).value
     return saved?.date === localDateKey() && typeof saved.text === 'string' ? saved.text : ''
@@ -1201,7 +1227,21 @@ function App() {
   const toggleTask = (id) => persistTasks(tasks.map(task => task.id === id ? { ...task, completed: !task.completed } : task))
   const editTask = (id, text) => persistTasks(tasks.map(task => task.id === id ? { ...task, text } : task))
   const deleteTask = (id) => persistTasks(tasks.filter(task => task.id !== id))
-  const persistHabits = next => { setHabits(next); writeStored('habits', next) }
+  const recordHabits = (list, day) => {
+    const done = list.filter(h => h.completedDate === day).length
+    setHabitLog(prev => {
+      if (!done && !prev[day]) return prev
+      if (prev[day]?.d === done && prev[day]?.n === list.length) return prev
+      const next = { ...prev, [day]: { d: done, n: list.length } }
+      const keys = Object.keys(next).sort()
+      if (keys.length > 400) keys.slice(0, keys.length - 400).forEach(k => delete next[k])
+      writeStored('habit-log', next)
+      return next
+    })
+  }
+  const clearHabitLog = () => { setHabitLog({}); writeStored('habit-log', {}) }
+  const persistHabits = next => { setHabits(next); writeStored('habits', next); recordHabits(next, today) }
+  useEffect(() => { recordHabits(habits, today) }, [today])
   const addHabit = name => persistHabits([{id:`${Date.now()}-${Math.random().toString(16).slice(2)}`,name,completedDate:null}, ...habits])
   const toggleHabit = id => persistHabits(habits.map(h => h.id===id ? {...h,completedDate:h.completedDate===today?null:today} : h))
   const editHabit = (id,name) => persistHabits(habits.map(h=>h.id===id?{...h,name}:h))
@@ -1248,7 +1288,7 @@ function App() {
     </section>
     <div className={`sound-bar ${soundOpen ? 'is-open' : 'is-collapsed'}`}><SoundMixer expanded={soundOpen} onToggleExpanded={toggleSoundOpen} controlRef={soundControl} /></div>
     <footer className="footer">{t('app.footer')}<div><button type="button" className="footer-link" onClick={() => setAboutOpen(true)}>{t('about.link')}</button></div></footer>
-    {statsOpen && <StatsDialog pomo={pomo} onClose={() => setStatsOpen(false)} />}
+    {statsOpen && <StatsDialog pomo={pomo} habitLog={habitLog} habitsNow={habits.length} onClearHabits={clearHabitLog} onClose={() => setStatsOpen(false)} />}
     {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
     {focusOpen && <PomodoroDialog pomo={pomo} onClose={() => setFocusOpen(false)} />}
     {themeOpen && <ThemeDialog currentTheme={theme} onSelect={chooseTheme} onClose={() => setThemeOpen(false)} />}
