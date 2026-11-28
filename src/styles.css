@@ -845,7 +845,8 @@ body { font-family:'DM Sans','Noto Sans Devanagari','Kohinoor Devanagari','Devan
 .stats-chart-habits { height:86px; }
 .stats-bar-habit { background:rgba(var(--gold-rgb),.38); }
 .stats-chart-habits .stats-col.today .stats-bar-habit { background:var(--gold); }
-/* window title strip and language menu follow the chosen theme */
+
+/* v3.9.1 window title strip and language menu follow the chosen theme */
 .app-shell[data-theme="paper"] { --dialog-a:#f0e8dc; --dialog-b:#ded2c0; }
 .app-shell[data-theme="midnight"] { --dialog-a:#29374d; --dialog-b:#182233; }
 .app-shell[data-theme="rose"] { --dialog-a:#493746; --dialog-b:#2c222b; }
@@ -853,5 +854,16 @@ body { font-family:'DM Sans','Noto Sans Devanagari','Kohinoor Devanagari','Devan
 .app-shell[data-theme="amber"] { --dialog-a:#54422f; --dialog-b:#2d2319; }
 .app-shell[data-theme="lavender"] { --dialog-a:#483f5a; --dialog-b:#272335; }
 .app-shell[data-theme="coastal"] { --dialog-a:#38505a; --dialog-b:#1f2c32; }
-/* warm paper: light top bar */
+/* v3.9.2 warm paper: light top bar */
 .app-shell[data-theme="paper"] .topbar { background:linear-gradient(rgba(240,232,220,.86), rgba(240,232,220,.66)); }
+
+/* v3.10 plan reminders */
+.plan-block, .app-shell .plan-block { grid-template-columns:78px minmax(0,1fr) 26px 20px; gap:8px; }
+.plan-bell { display:grid; place-items:center; width:26px; height:26px; padding:0; border:0; border-radius:50%; background:transparent; color:var(--muted); cursor:pointer; transition:color .18s ease, background .18s ease; }
+.plan-bell:hover { color:var(--cream); background:rgba(255,255,255,.06); }
+.plan-bell.on { color:var(--gold); }
+.plan-notice { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px; padding:10px 13px; border:1px solid rgba(var(--gold-rgb),.45); border-radius:13px; background:rgba(var(--gold-rgb),.1); color:var(--cream); font-size:13px; }
+.plan-notice button { border:0; background:transparent; color:var(--muted); cursor:pointer; font-size:16px; line-height:1; padding:0 2px; }
+.plan-hint { margin:16px 0 0; color:var(--muted); font-size:12px; line-height:1.5; }
+/* time picker opens above the add-block row */
+.gentle-plan .plan-blocks:has(.time-pop) { z-index:5; }

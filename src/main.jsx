@@ -989,7 +989,7 @@ function TimePicker({ value, onChange, label, up = false, compact = false }) {
   const period = h24 >= 12 ? 'PM' : 'AM'
   const hour12Value = h24 % 12 || 12
   const hours = hour12 ? Array.from({ length: 12 }, (_, i) => i + 1) : Array.from({ length: 24 }, (_, i) => i)
-  const minutes = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'))
+  const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))
   useEffect(() => {
     if (!open) return
     const onDown = event => { if (ref.current && !ref.current.contains(event.target)) setOpen(false) }
@@ -1020,7 +1020,35 @@ function TimePicker({ value, onChange, label, up = false, compact = false }) {
 
 const DEFAULT_PLAN_EN = { morning: 'Start gently', midday: 'Lunch / reset', afternoon: 'Wrap up & plan' }
 
-function PlanBlock({ block, onChange, onRemove }) {
+function playReminderChime(ctx) {
+  // A short, clear two-note alarm repeated three times (different from the timer chime)
+  try {
+    if (!ctx) return
+    const start = ctx.currentTime + 0.05
+    for (let round = 0; round < 3; round++) {
+      ;[880, 1174.66].forEach((freq, index) => {
+        const begin = start + round * 1.0 + index * 0.22
+        const osc = ctx.createOscillator()
+        const gain = ctx.createGain()
+        osc.type = 'triangle'
+        osc.frequency.value = freq
+        gain.gain.setValueAtTime(0.0001, begin)
+        gain.gain.exponentialRampToValueAtTime(0.28, begin + 0.015)
+        gain.gain.exponentialRampToValueAtTime(0.0001, begin + 0.42)
+        osc.connect(gain)
+        gain.connect(ctx.destination)
+        osc.start(begin)
+        osc.stop(begin + 0.45)
+      })
+    }
+  } catch (error) { console.warn('QUIETLY reminder sound could not play:', error) }
+}
+
+function planLabel(block, t) {
+  return DEFAULT_PLAN_EN[block.id] && block.label === DEFAULT_PLAN_EN[block.id] ? t(`plan.default.${block.id}`) : block.label
+}
+
+function PlanBlock({ block, onChange, onRemove, onToggleRemind }) {
   const { t } = useI18n()
   const shown = DEFAULT_PLAN_EN[block.id] && block.label === DEFAULT_PLAN_EN[block.id] ? t(`plan.default.${block.id}`) : block.label
   const [editing, setEditing] = useState(false)
@@ -1031,6 +1059,9 @@ function PlanBlock({ block, onChange, onRemove }) {
     {editing
       ? <input className="plan-label plan-label-input" autoFocus value={text} maxLength={80} aria-label={t('plan.edit')} onChange={e => setText(e.target.value)} onBlur={save} onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setText(shown); setEditing(false) } }} />
       : <button type="button" className="plan-label plan-label-button" onClick={() => { setText(shown); setEditing(true) }} title={t('plan.clickEdit')}>{shown}</button>}
+    <button className={`plan-bell ${block.remind ? 'on' : ''}`} type="button" onClick={onToggleRemind} aria-pressed={!!block.remind} aria-label={block.remind ? t('plan.remindOn', { label: shown }) : t('plan.remindOff', { label: shown })} title={block.remind ? t('plan.remindOn', { label: shown }) : t('plan.remindOff', { label: shown })}>
+      <svg viewBox="0 0 24 24" width="16" height="16" fill={block.remind ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7.5 2 7.5H4S6 15 6 9z" /><path d="M10 20a2 2 0 0 0 4 0" /></svg>
+    </button>
     <button className="plan-remove" type="button" onClick={onRemove} aria-label={t('plan.remove', { label: shown })}>×</button>
   </div>
 }
@@ -1044,10 +1075,85 @@ function GentlePlan() {
   const addBlock = event => { event.preventDefault(); if(!time || !label.trim()) return; persist([...blocks,{id:`${Date.now()}`,time,label:label.trim()}]); setTime(''); setLabel('') }
   const updateBlock = updated => persist(blocks.map(block => block.id === updated.id ? updated : block))
   const removeBlock = id => persist(blocks.filter(block=>block.id!==id))
+  const audioRef = useRef(null)
+  const unlockAudio = () => {
+    try {
+      const AudioCtor = window.AudioContext || window.webkitAudioContext
+      if (!AudioCtor) return
+      if (!audioRef.current) audioRef.current = new AudioCtor()
+      if (audioRef.current.state === 'suspended') audioRef.current.resume()
+    } catch (error) { console.warn('QUIETLY audio could not start:', error) }
+  }
+  const [permission, setPermission] = useState(() => ('Notification' in window ? Notification.permission : 'unsupported'))
+  const [notice, setNotice] = useState('')
+  const blocksRef = useRef(blocks)
+  blocksRef.current = blocks
+  const tRef = useRef(t)
+  tRef.current = t
+  const toggleRemind = async block => {
+    const on = !block.remind
+    updateBlock({ ...block, remind: on })
+    if (!on) return
+    unlockAudio()
+    if ('Notification' in window && Notification.permission === 'default') {
+      try { setPermission(await Notification.requestPermission()) } catch (error) { console.warn('QUIETLY notification permission failed:', error) }
+    } else if ('Notification' in window) setPermission(Notification.permission)
+  }
+  useEffect(() => {
+    const unlock = () => unlockAudio()
+    window.addEventListener('pointerdown', unlock)
+    window.addEventListener('keydown', unlock)
+    return () => { window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock) }
+  }, [])
+  useEffect(() => {
+    let hideTimer = null
+    const saved = readStored('plan-fired', {}).value
+    const firedRef = { current: saved && saved.day === localDateKey() && saved.keys ? saved.keys : {} }
+    const fire = block => {
+      const body = tRef.current('plan.reminderBody', { label: planLabel(block, tRef.current) })
+      unlockAudio()
+      playReminderChime(audioRef.current)
+      const granted = 'Notification' in window && Notification.permission === 'granted'
+      if (granted) {
+        try {
+          const note = new Notification('QUIETLY', { body, tag: `quietly-plan-${block.id}`, silent: true })
+          note.onclick = () => { window.focus(); note.close() }
+        } catch (error) { console.warn('QUIETLY reminder notification failed:', error) }
+      }
+      if (!granted || !document.hidden) {
+        setNotice(body)
+        clearTimeout(hideTimer)
+        hideTimer = setTimeout(() => setNotice(''), 20000)
+      }
+    }
+    const check = () => {
+      const now = new Date()
+      const day = localDateKey(now)
+      if (firedRef.current.__day && firedRef.current.__day !== day) firedRef.current = {}
+      const nowMinutes = now.getHours() * 60 + now.getMinutes()
+      blocksRef.current.forEach(block => {
+        if (!block.remind || !block.time) return
+        const [h, m] = block.time.split(':').map(Number)
+        const diff = nowMinutes - (h * 60 + m)
+        const key = `${block.id}@${block.time}`
+        if (diff >= 0 && diff <= 2 && !firedRef.current[key]) {
+          firedRef.current = { ...firedRef.current, [key]: true, __day: day }
+          writeStored('plan-fired', { day, keys: firedRef.current })
+          fire(block)
+        }
+      })
+    }
+    check()
+    const timer = setInterval(check, 20000)
+    document.addEventListener('visibilitychange', check)
+    return () => { clearInterval(timer); clearTimeout(hideTimer); document.removeEventListener('visibilitychange', check) }
+  }, [])
   return <section className="panel gentle-plan">
     <div className="panel-label">{t('plan.label')}</div>
     <div className="panel-heading"><h2>{t('plan.title')}</h2><span>{t('plan.today')}</span></div>
-    <div className="plan-blocks">{blocks.map(block => <PlanBlock key={block.id} block={block} onChange={updateBlock} onRemove={() => removeBlock(block.id)} />)}</div>
+    {notice && <div className="plan-notice" role="status"><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label={t('about.close')}>×</button></div>}
+    <div className="plan-blocks">{blocks.map(block => <PlanBlock key={block.id} block={block} onChange={updateBlock} onRemove={() => removeBlock(block.id)} onToggleRemind={() => toggleRemind(block)} />)}</div>
+    {blocks.some(block => block.remind) && (permission === 'denied' || permission === 'unsupported') && <p className="plan-hint">{t('plan.remindHint')}</p>}
     <form className="plan-add-form" onSubmit={addBlock}><TimePicker up value={time} onChange={setTime} label={t('plan.timeForNew')} /><input aria-label={t('plan.blockAria')} placeholder={t('plan.newBlock')} value={label} onChange={e=>setLabel(e.target.value)} maxLength={80}/><button type="submit" disabled={!time || !label.trim()}>+</button></form>
   </section>
 }
@@ -1142,7 +1248,7 @@ function App() {
   const i18n = useMemo(() => { const info = LANGUAGES.find(item => item.code === lang) || LANGUAGES[0]; return { lang, t: makeT(lang), locale: info.locale, hour12: info.hour12, setLang: code => { setLangState(code); writeStored('language', code) } } }, [lang])
   const t = i18n.t
   useEffect(() => { document.documentElement.lang = lang }, [lang])
-  const [theme, setTheme] = useState(() => { const saved = readStored('theme', 'auto').value; return THEMES.some(item => item.id === saved) ? saved : 'auto' })
+  const [theme, setTheme] = useState(() => { const saved = readStored('theme', 'forest').value; return THEMES.some(item => item.id === saved) ? saved : 'forest' })
   const [themeOpen, setThemeOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false)
@@ -1154,7 +1260,7 @@ function App() {
   const openTimerRef = useRef(null)
   openTimerRef.current = () => { if (!pomo.running && (pomo.remaining >= pomo.total || pomo.remaining <= 0)) pomo.start(); setFocusOpen(true) }
   const [backgroundOpen, setBackgroundOpen] = useState(false)
-  const [background, setBackground] = useState(() => { const saved = readStored('background', 'hemlock-path').value; return BACKGROUNDS.some(item => item.id === saved) ? saved : 'hemlock-path' })
+  const [background, setBackground] = useState(() => { const saved = readStored('background', 'none').value; return BACKGROUNDS.some(item => item.id === saved) ? saved : 'none' })
   const chooseBackground = (nextBackground) => { setBackground(nextBackground); writeStored('background', nextBackground) }
   const chooseTheme = (nextTheme) => { setTheme(nextTheme); writeStored('theme', nextTheme) }
   const [isFullscreen, setIsFullscreen] = useState(false)
